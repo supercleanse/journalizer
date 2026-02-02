@@ -1,0 +1,23 @@
+name = "journalizer"
+main = "src/index.ts"
+compatibility_date = "2026-02-02"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "journalizer-db"
+database_id = "placeholder-replace-after-d1-create"
+
+# R2 Media Storage
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "journalizer-media"
+
+# KV Sessions & Cache
+[[kv_namespaces]]
+binding = "KV"
+id = "placeholder-replace-after-kv-create"
+
+[vars]
+ENVIRONMENT = "development"
