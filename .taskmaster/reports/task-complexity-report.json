@@ -1,0 +1,189 @@
+{
+	"meta": {
+		"generatedAt": "2026-02-02T22:36:41.072Z",
+		"tasksAnalyzed": 22,
+		"totalTasks": 22,
+		"analysisCount": 22,
+		"thresholdScore": 5,
+		"projectName": "Task Master",
+		"usedResearch": false
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Initialize Cloudflare Workers project with TypeScript and Wrangler configuration",
+			"complexityScore": 3,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break down the project initialization into: (1) scaffold Cloudflare Workers project with create-cloudflare CLI, (2) configure wrangler.toml with D1/R2/KV bindings, (3) set up TypeScript with strict mode and proper module resolution, (4) create package.json with required dependencies (hono, drizzle-orm, zod, @cloudflare/workers-types), (5) create directory structure (src/, glass/, tests/, dist/, glass-views/, annotations/) and .env.example with all API key placeholders",
+			"reasoning": "This is a standard project scaffolding task with well-documented CLI tools. Complexity is low because it's mostly configuration and setup following established patterns. The main work involves running create-cloudflare, configuring bindings (D1, R2, KV), and setting up the directory structure per PRD section 2.3. No existing code to navigate."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Design and implement D1 database schema with migration system",
+			"complexityScore": 6,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down the database schema implementation into: (1) create raw SQL schema file with users table and indexes, (2) add entries table with proper foreign keys and indexes, (3) add media table with R2 key references, (4) add reminders and processing_log tables, (5) add print_subscriptions table, (6) set up Drizzle ORM schema definitions in TypeScript matching SQL schema, (7) implement typed query helpers (getUserById, createUser, createEntry, listEntries with pagination), (8) create Glass spec files for db/schema.glass and db/queries.glass with proper Intent and Contract sections",
+			"reasoning": "Moderate complexity due to: (1) six interconnected tables with foreign key constraints, (2) proper index design for query performance, (3) Drizzle ORM abstraction layer requiring both SQL and TypeScript definitions, (4) migration system setup, (5) typed query helpers with pagination logic, (6) Glass framework specs. This is greenfield development requiring careful schema design aligned with PRD section 6 specifications."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Implement Google OAuth 2.0 authentication flow with session management",
+			"complexityScore": 7,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Break down OAuth implementation into: (1) implement GET /auth/google endpoint with Google consent redirect and CSRF state parameter, (2) implement GET /auth/callback with code exchange for tokens, (3) extract user info from Google ID token and create/update user in D1, (4) implement JWT session management with signing/verification, (5) set up HttpOnly Secure cookies with proper flags, (6) implement POST /auth/logout to clear session, (7) implement GET /auth/me endpoint, (8) create auth middleware for JWT verification and user context injection, (9) set up KV storage for session/refresh tokens with TTL, (10) create Glass specs for auth/oauth.glass and auth/session.glass",
+			"reasoning": "High complexity due to: (1) OAuth 2.0 protocol implementation with proper CSRF protection, (2) secure JWT session management with refresh tokens, (3) KV integration for session storage with TTL, (4) cookie security (HttpOnly, Secure, SameSite), (5) middleware architecture for protected routes, (6) integration with D1 for user creation/updates. Security is critical here - any mistakes could expose user credentials. No existing auth code to reference."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Set up Hono router and worker entry point with middleware pipeline",
+			"complexityScore": 5,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break down Hono setup into: (1) install hono and set up basic Worker entry point in src/index.ts, (2) implement global CORS middleware with proper origin and credentials configuration, (3) implement global error handler middleware with structured JSON error responses, (4) set up auth middleware for /api/* protected routes, (5) configure route organization (auth routes, entries, media, settings, reminders, export, webhooks), (6) define TypeScript Env type with D1, R2, KV bindings, (7) create Glass spec for index.glass with routing contract",
+			"reasoning": "Moderate complexity due to: (1) Hono framework setup and router configuration, (2) middleware pipeline design (CORS, error handling, auth), (3) proper TypeScript bindings for Cloudflare Workers environment, (4) route organization across multiple modules, (5) error handling strategy. This is a foundational architectural task that affects all subsequent API development. Requires understanding of middleware order and Workers request handling."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Build R2 media storage service with upload, retrieval, and thumbnail generation",
+			"complexityScore": 8,
+			"recommendedSubtasks": 12,
+			"expansionPrompt": "Break down R2 media service into: (1) implement uploadMedia function with UUID-based R2 key generation, (2) handle file streaming and upload to R2, (3) store media metadata in D1 media table, (4) implement thumbnail generation for images using wasm-based image processing, (5) implement video thumbnail generation (extract first frame), (6) upload thumbnails to R2 with -thumb suffix, (7) implement getMediaUrl with user ownership validation, (8) implement R2 presigned URL generation, (9) implement deleteMedia with soft delete logic, (10) set up 30-day R2 cleanup strategy, (11) implement streaming for large file uploads, (12) create Glass spec for services/media.glass with security contracts",
+			"reasoning": "High complexity due to: (1) R2 object storage integration with proper key management, (2) thumbnail generation requiring wasm-based image processing (sharp alternative for Workers), (3) video processing (frame extraction), (4) presigned URL security, (5) soft delete with cleanup strategy, (6) streaming large files in Workers context, (7) user isolation guarantees, (8) metadata synchronization between R2 and D1. Video thumbnails are particularly challenging in Workers environment. No existing media handling code."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Integrate Anthropic Claude API for journal entry text polishing",
+			"complexityScore": 6,
+			"recommendedSubtasks": 9,
+			"expansionPrompt": "Break down AI integration into: (1) implement polishEntry function with Anthropic API client setup, (2) construct dynamic system prompt based on user voice preferences, (3) implement voice style logic (natural, conversational, reflective, polished), (4) integrate user's custom voice notes into prompt, (5) implement retry logic with exponential backoff for API failures, (6) implement rate limit handling, (7) log all API calls to processing_log table (without PII), (8) implement cost and latency tracking, (9) create Glass spec for services/ai.glass with voice preservation contract",
+			"reasoning": "Moderate-high complexity due to: (1) Anthropic API integration with proper authentication, (2) dynamic prompt construction based on user preferences (4 voice styles + custom notes), (3) retry logic and error handling for external API, (4) rate limiting and cost tracking, (5) logging to D1 processing_log, (6) ensuring no PII leakage in logs, (7) Glass contract guaranteeing voice preservation and no content addition. The contract verification is critical - must prove AI doesn't add content user didn't write."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Integrate Deepgram Nova-3 API for audio and video transcription",
+			"complexityScore": 8,
+			"recommendedSubtasks": 11,
+			"expansionPrompt": "Break down transcription service into: (1) implement transcribeMedia function with Deepgram client setup, (2) download media from R2 with streaming for large files, (3) implement video audio extraction (FFmpeg wasm or separate service), (4) send audio to Deepgram Nova-3 API with punctuation/paragraphs/diarization options, (5) parse Deepgram response and extract transcript/confidence/duration/words, (6) handle long-form content (>30 min files), (7) implement error handling for poor audio quality, (8) handle unsupported format failures, (9) store transcription in D1 media.transcription column, (10) implement cost tracking in processing_log, (11) create Glass spec for services/transcription.glass",
+			"reasoning": "High complexity due to: (1) Deepgram API integration with streaming audio, (2) video audio extraction requiring FFmpeg (challenging in Workers), (3) handling large files efficiently in edge environment, (4) speaker diarization and timestamp processing, (5) error handling for poor quality/unsupported formats, (6) cost tracking per transcription, (7) R2 streaming integration. FFmpeg in Workers is particularly challenging - may require wasm compilation or external service. No existing transcription code."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Build journal entries API with CRUD operations and pagination",
+			"complexityScore": 7,
+			"recommendedSubtasks": 11,
+			"expansionPrompt": "Break down entries API into: (1) implement GET /api/entries with pagination (page, limit params), (2) add filtering by date range (startDate, endDate), (3) add filtering by type and source, (4) implement full-text search functionality, (5) implement GET /api/entries/:id with media attachments, (6) implement POST /api/entries with Zod validation, (7) integrate async AI polish when polishWithAI=true, (8) implement PUT /api/entries/:id for editing polished content/tags/mood, (9) implement DELETE /api/entries/:id with soft delete and cascade, (10) ensure all operations filtered by userId from JWT, (11) create Glass spec for routes/entries.glass with isolation contract",
+			"reasoning": "High complexity due to: (1) comprehensive REST API with 5 endpoints, (2) pagination with total count calculation, (3) multiple filtering dimensions (date, type, source), (4) full-text search in D1/SQLite, (5) Zod schema validation for all inputs, (6) async AI polish integration, (7) user isolation guarantees (critical security requirement), (8) soft delete with cascade to media, (9) media attachment handling. This is a core API requiring careful design for performance and security. Search in SQLite may require FTS5 virtual tables."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Implement Twilio SMS/MMS inbound webhook with phone verification",
+			"complexityScore": 9,
+			"recommendedSubtasks": 15,
+			"expansionPrompt": "Break down Twilio webhook into: (1) implement POST /api/webhooks/twilio endpoint, (2) implement X-Twilio-Signature validation (critical security), (3) parse Twilio webhook payload (From, Body, NumMedia, MediaUrl0-9), (4) look up user by phone_number with phone_verified=1, (5) handle unregistered number case with SMS response, (6) handle text-only messages - create entry and send to AI, (7) handle photo MMS - download from Twilio, upload to R2, create entry, (8) handle audio MMS - download, upload to R2, send to transcription, create entry with transcript, (9) handle video MMS - download, upload to R2, transcribe audio track, create entry, (10) send polished entry to AI service (background job), (11) respond with TwiML confirmation, (12) implement POST /api/settings/verify-phone with 6-digit code generation, (13) store code in KV with 10-min TTL, (14) send verification SMS via Twilio, (15) implement POST /api/settings/confirm-phone with code validation and rate limiting (3 attempts max)",
+			"reasoning": "Very high complexity due to: (1) Twilio signature validation (critical - failure = security breach), (2) handling 4 different media types with different processing flows, (3) downloading media from Twilio temporary URLs before they expire, (4) integration with media service (R2), transcription service, and AI service, (5) phone verification flow with KV storage and TTL, (6) rate limiting on verification codes (3 per hour), (7) async background processing for AI polish, (8) TwiML response generation, (9) Glass specs for webhooks/twilio.glass and settings/phone-verify.glass. This is the killer feature with many moving parts and external dependencies."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Create user settings API for profile, voice preferences, and phone management",
+			"complexityScore": 5,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down settings API into: (1) implement GET /api/settings to return user settings from D1, (2) implement PUT /api/settings with Zod validation, (3) add timezone validation against IANA database, (4) validate voiceStyle enum (natural/conversational/reflective/polished), (5) validate voiceNotes string length limits, (6) integrate with phone verification endpoints from task 9, (7) implement rate limiting on verify-phone (3 per hour using KV counter), (8) create Glass spec for routes/settings.glass with validation contracts",
+			"reasoning": "Moderate complexity due to: (1) CRUD operations on user settings, (2) timezone validation (IANA database lookup), (3) voice preference enum validation, (4) rate limiting implementation using KV counters, (5) integration with phone verification flow from task 9, (6) Zod schema validation. This is relatively straightforward but has dependencies on task 9 for phone verification and requires proper validation logic."
+		},
+		{
+			"taskId": 11,
+			"taskTitle": "Implement reminder configuration API and storage",
+			"complexityScore": 6,
+			"recommendedSubtasks": 9,
+			"expansionPrompt": "Break down reminders API into: (1) implement GET /api/reminders to list user reminders, (2) implement POST /api/reminders with Zod validation, (3) validate reminderType enum (daily/weekly/monthly/smart), (4) validate timeOfDay format (HH:MM), (5) validate dayOfWeek (0-6) for weekly reminders, (6) validate dayOfMonth (1-28) for monthly reminders, (7) validate smartThreshold (1-14) for smart reminders, (8) implement PUT /api/reminders/:id and DELETE /api/reminders/:id, (9) create Glass spec for routes/reminders.glass with validation contracts",
+			"reasoning": "Moderate-high complexity due to: (1) CRUD operations on reminders table, (2) complex validation logic for 4 different reminder types with type-specific fields, (3) timeOfDay parsing and validation, (4) smart threshold range validation, (5) support for multiple reminders per user, (6) active/inactive toggle logic, (7) Zod schema validation with conditional fields. The validation logic is intricate because different reminder types require different fields."
+		},
+		{
+			"taskId": 12,
+			"taskTitle": "Build Cron Trigger worker for processing scheduled reminders",
+			"complexityScore": 8,
+			"recommendedSubtasks": 12,
+			"expansionPrompt": "Break down cron worker into: (1) configure Cloudflare Cron Trigger in wrangler.toml (*/15 * * * *), (2) implement handleCron function to query active reminders, (3) implement timezone conversion logic using user's timezone setting, (4) implement shouldFireReminder logic for daily reminders, (5) implement weekly reminder logic with day matching, (6) implement monthly reminder logic with day-of-month matching, (7) implement smart nudge logic - query last entry date and compare to threshold, (8) implement reminder message rotation system (3-5 variations), (9) integrate with SMS service to send reminders, (10) update last_sent_at in reminders table, (11) implement duplicate prevention logic, (12) create Glass spec for services/reminders.glass with timezone-accuracy contract",
+			"reasoning": "High complexity due to: (1) Cron Trigger configuration and handler implementation, (2) timezone conversion for users in different zones (critical for correct firing times), (3) four different reminder logic paths (daily/weekly/monthly/smart), (4) smart nudge requires querying entries table for last entry date calculation, (5) message rotation to avoid monotony, (6) integration with SMS service (dependency on task 13), (7) last_sent_at tracking to prevent duplicates, (8) running in 15-minute windows requires precise time matching. Timezone handling is particularly error-prone."
+		},
+		{
+			"taskId": 13,
+			"taskTitle": "Build outbound SMS service using Twilio Programmable Messaging",
+			"complexityScore": 5,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down SMS service into: (1) implement sendSMS function using Twilio REST API (not SDK), (2) set up Basic Auth with ACCOUNT_SID and AUTH_TOKEN, (3) implement E.164 phone number validation, (4) handle Twilio error codes (21211 invalid number, 21614 trial limit, rate limits), (5) implement exponential backoff for rate limits, (6) log all SMS sends to processing_log (no PII), (7) implement message templates (verificationCode, entryConfirmation, reminder), (8) create Glass spec for services/sms.glass with delivery tracking contract",
+			"reasoning": "Moderate complexity due to: (1) Twilio REST API integration without SDK (to avoid Workers runtime issues), (2) E.164 phone format validation, (3) comprehensive error handling for various Twilio error codes, (4) exponential backoff for rate limits, (5) logging without PII, (6) message template system, (7) Basic Auth setup. This is a critical service for reminders and confirmations but relatively straightforward API integration."
+		},
+		{
+			"taskId": 14,
+			"taskTitle": "Create React SPA frontend with Vite build system",
+			"complexityScore": 6,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Break down frontend setup into: (1) run npm create vite with react-ts template, (2) set up React Router for client-side routing, (3) create auth context provider with JWT token management, (4) implement API client wrapper with Authorization header and token refresh, (5) install dependencies (react-router-dom, @tanstack/react-query, date-fns, tailwindcss), (6) create directory structure (pages/, components/, lib/, types/), (7) implement error handling and toast notifications, (8) set up TypeScript interfaces matching backend types, (9) configure Tailwind CSS, (10) deploy to Cloudflare Pages or configure Workers static asset handler, create Glass spec for frontend/app.glass",
+			"reasoning": "Moderate-high complexity due to: (1) Vite + React + TypeScript setup, (2) routing configuration with protected routes, (3) auth context for JWT management, (4) API client with automatic token refresh and error handling, (5) state management with TanStack Query, (6) Tailwind CSS configuration, (7) TypeScript interface definitions matching backend, (8) deployment to Cloudflare Pages or Workers. This is foundational frontend architecture affecting all subsequent UI tasks. No existing frontend code to build on."
+		},
+		{
+			"taskId": 15,
+			"taskTitle": "Build dashboard page with entry timeline, calendar, and search",
+			"complexityScore": 8,
+			"recommendedSubtasks": 13,
+			"expansionPrompt": "Break down dashboard into: (1) create Dashboard.tsx page component, (2) implement header with search input and user avatar, (3) implement calendar sidebar using date-fns for month grid, (4) implement calendar date highlighting logic (query entries by date), (5) implement view toggles (Month/Week/Day) with state management, (6) create EntryCard component for timeline, (7) implement infinite scroll using Intersection Observer and react-query, (8) implement full-text search with debouncing, (9) implement 'View Original' toggle (modal or side-by-side), (10) implement entry navigation to /entries/:id, (11) implement streak counter logic (consecutive days calculation), (12) implement monthly entry count, (13) create Glass spec for frontend/dashboard.glass with performance contract",
+			"reasoning": "High complexity due to: (1) complex UI with multiple interactive components, (2) calendar widget requiring date logic and entry highlighting, (3) infinite scroll with pagination and react-query integration, (4) search with debouncing and API calls, (5) view toggle state management affecting display logic, (6) streak calculation (consecutive days with entries), (7) performance optimization for large entry counts, (8) responsive design for mobile. This is the primary user-facing interface requiring careful UX design and performance tuning."
+		},
+		{
+			"taskId": 16,
+			"taskTitle": "Build new entry creation form with media upload and AI toggle",
+			"complexityScore": 9,
+			"recommendedSubtasks": 14,
+			"expansionPrompt": "Break down new entry form into: (1) create NewEntry.tsx with form state management, (2) implement date picker with past date selection, (3) implement textarea for entry content with markdown support, (4) implement file upload UI for photos/audio/video, (5) implement MediaRecorder API for in-browser audio recording, (6) add record/stop/play controls for audio recording, (7) implement AI polish checkbox (default checked), (8) implement tags input with comma-separated parsing or autocomplete, (9) implement mood selector with emoji buttons, (10) implement location field, (11) handle media upload to POST /api/media/upload endpoint, (12) implement form submission to POST /api/entries with loading state, (13) implement autosave to localStorage every 30 seconds, (14) create Glass spec for frontend/new-entry.glass with autosave contract",
+			"reasoning": "Very high complexity due to: (1) complex form with 10+ fields and state management, (2) MediaRecorder API integration (browser compatibility challenges), (3) file upload handling for multiple media types, (4) audio recording with waveform visualization (optional), (5) autosave to localStorage with 30-second intervals, (6) multi-step flow (upload media first, get IDs, then create entry), (7) loading states during AI polish (3-10 seconds), (8) markdown support in textarea, (9) emoji mood selector, (10) validation and error handling. MediaRecorder API compatibility across browsers is particularly challenging."
+		},
+		{
+			"taskId": 17,
+			"taskTitle": "Implement settings page with voice preferences, phone verification, and reminders UI",
+			"complexityScore": 8,
+			"recommendedSubtasks": 13,
+			"expansionPrompt": "Break down settings page into: (1) create Settings.tsx with section layout, (2) implement profile section (display name, email read-only, timezone dropdown), (3) populate timezone dropdown with IANA zones, (4) implement SMS journaling section with phone input and country code dropdown, (5) implement phone verification flow (trigger POST /api/settings/verify-phone), (6) create verification modal with 6-digit code input, (7) implement verification confirmation (POST /api/settings/confirm-phone), (8) add verification status indicator, (9) implement AI voice preferences (style dropdown, custom instructions textarea), (10) implement reminders section with daily/weekly/monthly/smart toggles and time/day pickers, (11) implement data export buttons (JSON/PDF), (12) add print subscription placeholder (Coming Soon), (13) create Glass spec for frontend/settings.glass with validation contract",
+			"reasoning": "High complexity due to: (1) multi-section settings form with many fields, (2) phone verification modal flow with state management, (3) E.164 phone input with country code dropdown, (4) timezone dropdown with hundreds of IANA zones, (5) reminder configuration UI with conditional fields (day picker for weekly, day-of-month for monthly, threshold slider for smart), (6) voice preference UI with live preview ('Test AI' button), (7) form validation matching backend Zod schemas, (8) data export triggers, (9) coordinating multiple API endpoints. This is a complex form with many interdependent fields."
+		},
+		{
+			"taskId": 18,
+			"taskTitle": "Build entry detail view with media player and edit functionality",
+			"complexityScore": 7,
+			"recommendedSubtasks": 11,
+			"expansionPrompt": "Break down entry detail view into: (1) create EntryView.tsx for route /entries/:id, (2) fetch entry data with media attachments on mount, (3) implement back button navigation, (4) display entry metadata (date, time, source badge), (5) render polished content with markdown, (6) implement 'View Original' toggle (side-by-side or replace view), (7) create photo gallery with grid layout and lightbox on click, (8) implement custom audio player with play/pause/seek controls and waveform (Howler.js or Wavesurfer.js), (9) implement HTML5 video player with controls, (10) display transcripts below audio/video players, (11) implement inline edit functionality (PUT /api/entries/:id), add delete button with confirmation modal, create Glass spec for frontend/entry-view.glass",
+			"reasoning": "High complexity due to: (1) dynamic route with entry ID parameter, (2) media gallery with lightbox for photos, (3) custom audio player with waveform visualization (requires Howler.js or Wavesurfer.js), (4) video player with lazy loading, (5) original/polished content toggle with state management, (6) inline editing with form validation, (7) delete with confirmation modal, (8) markdown rendering, (9) transcript display for audio/video. The custom audio player with waveform is particularly complex."
+		},
+		{
+			"taskId": 19,
+			"taskTitle": "Implement data export API with JSON and PDF formats",
+			"complexityScore": 7,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Break down export API into: (1) implement GET /api/export/json endpoint, (2) query all entries, media, reminders for user from D1, (3) construct JSON export structure with user info and stats, (4) set Content-Disposition header for download, (5) implement GET /api/export/pdf endpoint with date range query params, (6) integrate pdf-lib or Puppeteer (via Browserless) for PDF generation, (7) design PDF template (cover page, TOC, entry pages with dates), (8) embed media thumbnails in PDF, (9) add placeholders for audio/video, (10) create Glass spec for routes/export.glass with completeness contract",
+			"reasoning": "High complexity due to: (1) JSON export requires querying multiple tables (entries, media, reminders) and constructing nested structure, (2) PDF generation in Workers environment (pdf-lib or Puppeteer), (3) PDF template design (cover, TOC, page numbers, footer), (4) embedding thumbnails from R2 into PDF, (5) date range filtering for PDF, (6) Content-Disposition headers for downloads, (7) handling large datasets (100+ entries), (8) memory constraints in Workers. PDF generation in Workers is particularly challenging - may require external service like Browserless."
+		},
+		{
+			"taskId": 20,
+			"taskTitle": "Set up GitHub Actions CI/CD pipeline for testing and deployment",
+			"complexityScore": 4,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break down CI/CD pipeline into: (1) create .github/workflows/deploy.yml with job structure, (2) configure lint-and-test job with ESLint, (3) add typecheck step using tsc --noEmit, (4) add test step using Vitest, (5) configure deploy job dependent on lint-and-test, (6) add Cloudflare Wrangler deployment step, (7) configure GitHub Secrets for CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, add npm scripts (lint, typecheck, test, build, deploy), configure D1 migrations in deployment",
+			"reasoning": "Moderate complexity due to: (1) GitHub Actions workflow configuration, (2) multi-stage pipeline (lint, typecheck, test, deploy), (3) Cloudflare Wrangler integration, (4) secret management, (5) conditional deployment (only on main branch), (6) D1 migration execution during deployment, (7) npm scripts setup. This is relatively straightforward DevOps work with well-documented tools. No existing CI/CD to migrate from."
+		},
+		{
+			"taskId": 21,
+			"taskTitle": "Implement comprehensive error handling and logging system",
+			"complexityScore": 7,
+			"recommendedSubtasks": 11,
+			"expansionPrompt": "Break down error handling into: (1) create logger.ts with structured logging utilities, (2) define LogContext interface with userId, requestId, endpoint, duration, error, metadata, (3) implement log function for info/warn/error levels, (4) integrate Cloudflare Workers Analytics Engine for custom metrics, (5) implement structured error responses (code, message, details), (6) define error codes (AUTH_FAILED, VALIDATION_ERROR, MEDIA_PROCESSING_FAILED, RATE_LIMIT_EXCEEDED, etc.), (7) implement PII filtering in logs, (8) implement rate limiting using KV counters (100 req/hr for entries, 10/hr for phone verification), (9) track key metrics (API latency, AI processing time, transcription duration, SMS delivery rate), (10) configure alerts for high error rates and slow responses, (11) create Glass spec for lib/error-handling.glass",
+			"reasoning": "High complexity due to: (1) comprehensive logging system with structured context, (2) Workers Analytics Engine integration, (3) PII protection in logs (critical security requirement), (4) rate limiting implementation using KV counters, (5) custom error codes and structured responses, (6) metric tracking for multiple dimensions (latency, AI time, transcription duration), (7) alerting configuration, (8) Glass contract guaranteeing PII protection. This is cross-cutting infrastructure affecting all endpoints."
+		},
+		{
+			"taskId": 22,
+			"taskTitle": "Write comprehensive test suite with unit and integration tests",
+			"complexityScore": 9,
+			"recommendedSubtasks": 16,
+			"expansionPrompt": "Break down test suite into: (1) set up Vitest configuration, (2) create test structure mirroring src/, (3) write unit tests for db/queries.ts with mocked D1, (4) write unit tests for services/ai.ts with mocked Anthropic API, (5) write unit tests for services/transcription.ts with mocked Deepgram, (6) write unit tests for services/media.ts with mocked R2, (7) write unit tests for services/sms.ts with mocked Twilio, (8) write unit tests for lib/auth.ts (JWT signing/verification), (9) write unit tests for all route handlers with mocked dependencies, (10) set up integration tests with real D1/R2/KV bindings, (11) write integration test for login → create entry → list entries flow, (12) write integration test for webhook processing with mocked Twilio, (13) write integration test for cron trigger logic, (14) set up Playwright for E2E tests (sign up, verify phone, create entry, configure reminder, export), (15) configure coverage reporting (target 80%+), (16) create Glass specs for test files with isolation contracts",
+			"reasoning": "Very high complexity due to: (1) comprehensive test coverage across 13 modules, (2) unit tests requiring extensive mocking (D1, R2, KV, Anthropic, Deepgram, Twilio), (3) integration tests with real Cloudflare bindings, (4) E2E tests with Playwright covering critical user flows, (5) coverage reporting and 80%+ target, (6) Glass specs for tests (meta-testing), (7) webhook testing with signature validation, (8) cron trigger testing with time mocking. This is extensive QA work across backend, frontend, and integration layers. Dependencies on tasks 1-13 mean all those implementations must be complete before comprehensive testing."
+		}
+	]
+}

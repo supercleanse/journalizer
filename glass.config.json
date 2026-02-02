@@ -1,0 +1,10 @@
+{
+  "version": "0.1.0",
+  "language": "typescript",
+  "projectName": "journalizer",
+  "outputDir": "dist",
+  "generatedDir": "glass-views",
+  "annotationsDir": "annotations",
+  "glassDir": "glass",
+  "sourceDir": "src"
+}

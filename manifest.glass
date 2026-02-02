@@ -1,0 +1,15 @@
+Glass Manifest: journalizer
+Version: 0.1.0
+Language: TypeScript
+Created: 2026-02-02
+
+Origins:
+
+Policies:
+  auto-approve: security, audit, infrastructure
+  require-approval: business-logic, data-model
+
+Intent Registry:
+  user-originated: 0 intents
+  conversation-derived: 0 intents
+  ai-generated: 0 intents
