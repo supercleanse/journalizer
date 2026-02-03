@@ -121,7 +121,7 @@ export default function Settings() {
   });
 
   const toggleReminderMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: number }) =>
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       api.put(`/api/reminders/${id}`, { isActive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
@@ -305,16 +305,16 @@ export default function Settings() {
                       onClick={() =>
                         toggleReminderMutation.mutate({
                           id: r.id,
-                          isActive: r.isActive === 1 ? 0 : 1,
+                          isActive: !r.isActive,
                         })
                       }
                       className={`h-4 w-8 rounded-full transition-colors ${
-                        r.isActive === 1 ? "bg-green-500" : "bg-gray-300"
+                        r.isActive ? "bg-green-500" : "bg-gray-300"
                       }`}
                     >
                       <span
                         className={`block h-3 w-3 rounded-full bg-white shadow transition-transform ${
-                          r.isActive === 1
+                          r.isActive
                             ? "translate-x-4"
                             : "translate-x-0.5"
                         }`}

@@ -5,6 +5,7 @@ import { createDb } from "../db/index";
 import {
   listEntries,
   getEntryById,
+  getEntryDates,
   createEntry,
   updateEntry,
   deleteEntry,
@@ -41,6 +42,14 @@ entries.get("/", async (c) => {
     limit,
     offset,
   });
+});
+
+// GET /api/entries/dates — lightweight list of all entry dates for calendar/streak
+entries.get("/dates", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+  const dates = await getEntryDates(db, userId);
+  return c.json({ dates });
 });
 
 // GET /api/entries/:id — get single entry with media
@@ -160,25 +169,31 @@ entries.put("/:id", async (c) => {
   return c.json({ entry });
 });
 
-// DELETE /api/entries/:id — delete entry (cleans up R2 media first)
+// DELETE /api/entries/:id — delete entry (cleans up R2 media)
 entries.delete("/:id", async (c) => {
   const userId = c.get("userId");
   const entryId = c.req.param("id");
   const db = createDb(c.env.DB);
 
-  // Clean up R2 objects before D1 cascade-delete removes the media rows
-  const mediaRows = await getMediaByEntry(db, entryId);
-  for (const m of mediaRows) {
-    await c.env.MEDIA.delete(m.r2Key).catch(() => {});
-    if (m.thumbnailR2Key) {
-      await c.env.MEDIA.delete(m.thumbnailR2Key).catch(() => {});
-    }
+  // Verify ownership before touching R2
+  const entry = await getEntryById(db, entryId, userId);
+  if (!entry) {
+    throw new EntryNotFound();
   }
+
+  // Collect R2 keys to delete after DB cascade
+  const mediaRows = await getMediaByEntry(db, entryId);
+  const r2Keys = mediaRows.flatMap((m) =>
+    m.thumbnailR2Key ? [m.r2Key, m.thumbnailR2Key] : [m.r2Key]
+  );
 
   const deleted = await deleteEntry(db, entryId, userId);
   if (!deleted) {
     throw new EntryNotFound();
   }
+
+  // Clean up R2 objects in parallel after ownership-verified delete
+  await Promise.allSettled(r2Keys.map((key) => c.env.MEDIA.delete(key)));
 
   return c.json({ success: true });
 });

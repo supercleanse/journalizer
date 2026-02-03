@@ -91,14 +91,13 @@ export default function Dashboard() {
   // Fetch all entry dates for calendar highlighting and streak
   const { data: allDatesData } = useQuery({
     queryKey: ["entry-dates"],
-    queryFn: () =>
-      api.get<EntriesResponse>(`/api/entries?limit=100&offset=0`),
+    queryFn: () => api.get<{ dates: string[] }>("/api/entries/dates"),
   });
 
-  const entryDates = useMemo(() => {
-    const dates = allDatesData?.entries.map((e) => e.entryDate) ?? [];
-    return new Set(dates);
-  }, [allDatesData]);
+  const entryDates = useMemo(
+    () => new Set(allDatesData?.dates ?? []),
+    [allDatesData]
+  );
 
   const streak = useMemo(
     () => calculateStreak([...entryDates]),
@@ -107,9 +106,9 @@ export default function Dashboard() {
 
   const monthCount = useMemo(() => {
     const now = new Date();
-    return (allDatesData?.entries ?? []).filter((e) => {
-      const d = parseISO(e.entryDate);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return (allDatesData?.dates ?? []).filter((d) => {
+      const parsed = parseISO(d);
+      return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
     }).length;
   }, [allDatesData]);
 

@@ -68,46 +68,31 @@ auth.get("/callback", async (c) => {
   }
 
   const tokens = (await tokenResponse.json()) as {
-    id_token?: string;
     access_token?: string;
     refresh_token?: string;
   };
 
-  if (!tokens.id_token) {
-    throw new TokenExchangeFailed("No ID token received from Google");
+  if (!tokens.access_token) {
+    throw new TokenExchangeFailed("No access token received from Google");
   }
 
-  // Decode ID token (Google's tokens are JWTs)
-  const parts = tokens.id_token.split(".");
-  if (parts.length !== 3) {
-    throw new TokenExchangeFailed("Invalid ID token format");
-  }
-
-  // Base64url decode with proper padding and UTF-8 handling
-  let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4 !== 0) b64 += "=";
-  const jsonStr = new TextDecoder().decode(
-    Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))
+  // Use Google's userinfo endpoint for verified user data
+  // This avoids needing to cryptographically verify the JWT ourselves
+  const userinfoResponse = await fetch(
+    "https://www.googleapis.com/oauth2/v3/userinfo",
+    { headers: { Authorization: `Bearer ${tokens.access_token}` } }
   );
 
-  const payload = JSON.parse(jsonStr) as {
+  if (!userinfoResponse.ok) {
+    throw new TokenExchangeFailed("Failed to fetch user info from Google");
+  }
+
+  const payload = (await userinfoResponse.json()) as {
     sub: string;
     email: string;
     name?: string;
     picture?: string;
-    iss?: string;
-    aud?: string;
-    exp?: number;
   };
-
-  // Validate basic ID token claims
-  if (
-    (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") ||
-    payload.aud !== c.env.GOOGLE_CLIENT_ID ||
-    (payload.exp && payload.exp < Math.floor(Date.now() / 1000))
-  ) {
-    throw new TokenExchangeFailed("ID token validation failed");
-  }
 
   const db = createDb(c.env.DB);
 

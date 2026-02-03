@@ -2,8 +2,6 @@ import jwt from "@tsndr/cloudflare-worker-jwt";
 import type { Context, Next } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { AppContext } from "../types/env";
-import { createDb } from "../db/index";
-import { getUserById } from "../db/queries";
 import { InvalidToken, MissingToken } from "./errors";
 
 export interface SessionPayload {

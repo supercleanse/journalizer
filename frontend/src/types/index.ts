@@ -41,7 +41,7 @@ export interface Reminder {
   dayOfWeek: number | null;
   dayOfMonth: number | null;
   smartThreshold: number | null;
-  isActive: number;
+  isActive: boolean;
   lastSentAt: string | null;
   createdAt: string;
 }
@@ -58,4 +58,8 @@ export interface AuthUser {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  timezone: string;
+  phoneVerified: boolean;
+  voiceStyle: string;
+  createdAt: string;
 }

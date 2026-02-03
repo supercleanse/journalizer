@@ -3,7 +3,7 @@ import { createDb } from "../db/index";
 import {
   getAllActiveReminders,
   getUsersByIds,
-  getLastEntryDate,
+  getLastEntryDatesByUserIds,
   updateReminderLastSent,
   logProcessing,
 } from "../db/queries";
@@ -131,9 +131,12 @@ export async function handleCron(env: Env): Promise<void> {
 
   const activeReminders = await getAllActiveReminders(db);
 
-  // Batch-fetch all users to avoid N+1 queries
+  // Batch-fetch all users and last entry dates to avoid N+1 queries
   const userIds = [...new Set(activeReminders.map((r) => r.userId))];
-  const usersArr = await getUsersByIds(db, userIds);
+  const [usersArr, lastEntryDates] = await Promise.all([
+    getUsersByIds(db, userIds),
+    getLastEntryDatesByUserIds(db, userIds),
+  ]);
   const usersMap = new Map(usersArr.map((u) => [u.id, u]));
 
   for (const reminder of activeReminders) {
@@ -179,7 +182,7 @@ export async function handleCron(env: Env): Promise<void> {
           break;
 
         case "smart": {
-          const lastEntry = await getLastEntryDate(db, reminder.userId);
+          const lastEntry = lastEntryDates[reminder.userId];
           if (lastEntry) {
             const lastDate = new Date(lastEntry);
             daysSinceLastEntry = Math.floor(

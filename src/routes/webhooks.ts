@@ -4,13 +4,11 @@ import { createDb } from "../db/index";
 import {
   getUserByPhone,
   createEntry,
-  getUserById,
   logProcessing,
 } from "../db/queries";
 import {
   validateTwilioSignature,
   twimlResponse,
-  sendSMS,
 } from "../services/sms";
 import { downloadAndStore } from "../services/media";
 import { transcribeFromR2 } from "../services/transcription";
@@ -110,12 +108,30 @@ webhooks.post("/twilio", async (c) => {
             rawContent = rawContent
               ? `${rawContent}\n\n[Transcription]: ${transcription.transcript}`
               : transcription.transcript;
-          } catch {
-            // Transcription failed — continue without it
+          } catch (err) {
+            await logProcessing(db, {
+              id: crypto.randomUUID(),
+              entryId,
+              action: "transcription",
+              status: "error",
+              details: JSON.stringify({
+                error: err instanceof Error ? err.message : "Transcription failed",
+                r2Key: mediaRecord.r2Key,
+              }),
+            }).catch(() => {});
           }
         }
-      } catch {
-        // Media download failed — continue with text
+      } catch (err) {
+        await logProcessing(db, {
+          id: crypto.randomUUID(),
+          entryId,
+          action: "media_download",
+          status: "error",
+          details: JSON.stringify({
+            error: err instanceof Error ? err.message : "Media download failed",
+            mediaUrl,
+          }),
+        }).catch(() => {});
       }
     }
   }

@@ -20,7 +20,7 @@ export default function NewEntry() {
 
   const createMutation = useMutation({
     mutationFn: async (body: {
-      rawContent: string;
+      rawContent?: string;
       entryDate: string;
       polishWithAI: boolean;
       entryType: string;
@@ -58,11 +58,20 @@ export default function NewEntry() {
       toast.error("Write something or attach a file");
       return;
     }
+    // Infer entryType from first attached file's MIME type
+    let entryType = "text";
+    if (files.length > 0) {
+      const mime = files[0].type;
+      if (mime.startsWith("audio/")) entryType = "audio";
+      else if (mime.startsWith("video/")) entryType = "video";
+      else entryType = "photo";
+    }
+
     createMutation.mutate({
-      rawContent: content,
+      rawContent: content.trim() || undefined,
       entryDate,
       polishWithAI: aiPolish,
-      entryType: files.length > 0 ? "photo" : "text",
+      entryType,
     });
   };
 

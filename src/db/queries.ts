@@ -344,6 +344,15 @@ export async function getUsersByIds(db: Database, ids: string[]) {
     );
 }
 
+export async function getEntryDates(db: Database, userId: string) {
+  const rows = await db
+    .select({ entryDate: entries.entryDate })
+    .from(entries)
+    .where(eq(entries.userId, userId))
+    .orderBy(desc(entries.entryDate));
+  return rows.map((r) => r.entryDate);
+}
+
 export async function getLastEntryDate(db: Database, userId: string) {
   const result = await db
     .select({ entryDate: entries.entryDate })
@@ -352,6 +361,31 @@ export async function getLastEntryDate(db: Database, userId: string) {
     .orderBy(desc(entries.entryDate))
     .limit(1);
   return result[0]?.entryDate ?? null;
+}
+
+export async function getLastEntryDatesByUserIds(
+  db: Database,
+  userIds: string[]
+): Promise<Record<string, string>> {
+  if (userIds.length === 0) return {};
+  const rows = await db
+    .select({
+      userId: entries.userId,
+      entryDate: sql<string>`MAX(${entries.entryDate})`,
+    })
+    .from(entries)
+    .where(
+      sql`${entries.userId} IN (${sql.join(
+        userIds.map((id) => sql`${id}`),
+        sql`, `
+      )})`
+    )
+    .groupBy(entries.userId);
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    result[row.userId] = row.entryDate;
+  }
+  return result;
 }
 
 export async function updateReminderLastSent(

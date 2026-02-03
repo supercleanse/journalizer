@@ -4,6 +4,7 @@ import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
 import { getUserById, updateUser } from "../db/queries";
 import { sendSMS, generateVerificationCode } from "../services/sms";
+import { ValidationError } from "../lib/errors";
 
 const settings = new Hono<AppContext>();
 
@@ -49,7 +50,7 @@ settings.put("/", async (c) => {
 
   const parsed = updateSettingsSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: "Validation failed", details: parsed.error.flatten() }, 400);
+    throw new ValidationError("Validation failed");
   }
 
   const db = createDb(c.env.DB);

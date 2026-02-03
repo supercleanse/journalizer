@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { AppContext } from "../types/env";
 
 export class AppError extends Error {
@@ -267,7 +268,7 @@ export function errorHandler(err: Error, c: Context<AppContext, string>) {
           status: err.statusCode,
         },
       },
-      err.statusCode as 400 | 401 | 403 | 404 | 429 | 500
+      err.statusCode as ContentfulStatusCode
     );
   }
 

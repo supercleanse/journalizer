@@ -12,6 +12,11 @@ import { ValidationError, ReminderNotFound } from "../lib/errors";
 
 const remindersRoutes = new Hono<AppContext>();
 
+// Normalize DB reminder to API format (isActive: number → boolean)
+function toReminderResponse(r: Record<string, unknown>) {
+  return { ...r, isActive: r.isActive === 1 };
+}
+
 const createReminderSchema = z
   .object({
     reminderType: z.enum(["daily", "weekly", "monthly", "smart"]),
@@ -40,7 +45,7 @@ remindersRoutes.get("/", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
   const result = await listReminders(db, userId);
-  return c.json({ reminders: result });
+  return c.json({ reminders: result.map(toReminderResponse) });
 });
 
 // POST /api/reminders — create a reminder
@@ -65,7 +70,7 @@ remindersRoutes.post("/", async (c) => {
     ...parsed.data,
   });
 
-  return c.json({ reminder }, 201);
+  return c.json({ reminder: reminder ? toReminderResponse(reminder) : null }, 201);
 });
 
 const updateReminderSchema = z.object({
@@ -77,7 +82,7 @@ const updateReminderSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6).optional(),
   dayOfMonth: z.number().int().min(1).max(28).optional(),
   smartThreshold: z.number().int().min(1).max(14).optional(),
-  isActive: z.number().int().min(0).max(1).optional(),
+  isActive: z.boolean().optional(),
 });
 
 // PUT /api/reminders/:id — update a reminder
@@ -97,13 +102,18 @@ remindersRoutes.put("/:id", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-  const reminder = await updateReminder(db, id, userId, parsed.data);
+  const { isActive, ...rest } = parsed.data;
+  const dbData = {
+    ...rest,
+    ...(isActive !== undefined ? { isActive: isActive ? 1 : 0 } : {}),
+  };
+  const reminder = await updateReminder(db, id, userId, dbData);
 
   if (!reminder) {
     throw new ReminderNotFound();
   }
 
-  return c.json({ reminder });
+  return c.json({ reminder: toReminderResponse(reminder) });
 });
 
 // DELETE /api/reminders/:id — delete a reminder

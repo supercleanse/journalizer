@@ -2,7 +2,10 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AppContext } from "./types/env";
 import { authMiddleware } from "./lib/auth";
-import { errorHandler, RouteNotFound, AuthenticationRequired, InternalError } from "./lib/errors";
+import { errorHandler, RouteNotFound } from "./lib/errors";
+
+// Glass contract: failure modes (handled by errorHandler middleware)
+export { AuthenticationRequired, InternalError } from "./lib/errors";
 import authRoutes from "./routes/auth";
 import entriesRoutes from "./routes/entries";
 import mediaRoutes from "./routes/media";
@@ -51,6 +54,11 @@ app.route("/api/media", mediaRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/reminders", remindersRoutes);
 app.route("/api/export", exportRoutes);
+
+// 404 handler for unmatched routes
+app.notFound(() => {
+  throw new RouteNotFound();
+});
 
 export default {
   fetch: app.fetch,

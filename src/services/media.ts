@@ -1,6 +1,6 @@
 import type { Env } from "../types/env";
 import type { Database } from "../db/index";
-import { createMedia, getMediaById, getMediaByEntry } from "../db/queries";
+import { createMedia, getMediaById } from "../db/queries";
 import { MetadataInsertFailed, DownloadFailed } from "../lib/errors";
 
 // Glass contract: additional failure modes (soft failures return null)
