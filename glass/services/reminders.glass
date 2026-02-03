@@ -4,7 +4,7 @@ version: 0.1.0
 language: typescript
 
 === Intent ===
-purpose: Cron-triggered worker that processes scheduled reminders every 15 minutes. Evaluates all active reminders against user timezone, fires daily/weekly/monthly/smart nudge SMS via Twilio with duplicate prevention.
+purpose: Cron-triggered worker that processes scheduled reminders every 15 minutes and generates daily digests at midnight. Evaluates all active reminders against user timezone, fires daily/weekly/monthly/smart nudge messages via Telegram with duplicate prevention. At midnight (user timezone), triggers daily digest generation for the previous day.
 source:
   kind: prd
   reference: "PRD Section 8.4 — Reminder Scheduling"
@@ -17,8 +17,8 @@ approvalStatus: approved
 requires:
   - "Cron trigger configured in wrangler.toml (*/15 * * * *)"
   - "Active reminders exist in D1 with valid user references"
-  - "Users have verified phone numbers and timezone settings"
-  - "Twilio credentials configured in environment"
+  - "Users have Telegram linked or phone numbers for messaging"
+  - "Telegram bot token configured in environment"
 guarantees:
   on_success:
     - "Daily reminders fire at configured timeOfDay in user's timezone"
@@ -26,15 +26,21 @@ guarantees:
     - "Monthly reminders fire on configured dayOfMonth at timeOfDay"
     - "Smart nudge fires when days since last entry >= smartThreshold"
     - "Messages rotate deterministically per reminder per day"
-    - "lastSentAt updated after successful SMS delivery"
+    - "lastSentAt updated after successful message delivery"
+    - "Daily digest generated at midnight (00:00-00:14) for previous day"
+    - "Digest generation awaited to ensure completion within cron lifecycle"
   on_failure:
     - "Individual reminder failures do not block other reminders"
+    - "Individual digest failures do not block other users"
     - "All failures logged to processing_log with error details"
 invariants:
   - "No duplicate sends within the same day (lastSentAt check)"
+  - "No duplicate digests per day (lastDigestDate check)"
   - "Timezone conversion uses Intl.DateTimeFormat with IANA identifiers"
   - "15-minute cron window tolerance for time matching"
+  - "Yesterday calculation is DST-safe (calendar date subtraction, not fixed 24h)"
 fails:
   SMSDeliveryFailed: "Log error, continue with remaining reminders"
   UserNotFound: "Skip reminder silently"
   TimezoneInvalid: "Fall back to UTC"
+  DigestGenerationFailed: "Log error, continue with remaining users"

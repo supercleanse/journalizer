@@ -2,15 +2,17 @@ import type { Env } from "../types/env";
 import { createDb } from "../db/index";
 import {
   getAllActiveReminders,
+  getAllUsers,
   getUsersByIds,
   getLastEntryDatesByUserIds,
   updateReminderLastSent,
   logProcessing,
 } from "../db/queries";
 import { sendTelegramMessage } from "./telegram";
+import { generateDailyDigest } from "./digest";
 
 // Glass contract: failure modes (soft failures in cron loop)
-export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid } from "../lib/errors";
+export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid, DigestGenerationFailed } from "../lib/errors";
 
 const DAILY_MESSAGES = [
   "Hey! What happened today? Just reply to this message.",
@@ -123,12 +125,64 @@ function selectMessage(
 }
 
 /**
- * Main cron handler. Evaluates all active reminders and sends SMS for those that are due.
+ * Main cron handler. Evaluates all active reminders and generates daily digests.
  */
 export async function handleCron(env: Env): Promise<void> {
   const db = createDb(env.DB);
   const now = new Date();
 
+  // ── Daily Digest Generation ──────────────────────────────────────
+  try {
+    const allUsers = await getAllUsers(db);
+
+    for (const user of allUsers) {
+      try {
+        let timezone = user.timezone || "UTC";
+        let local;
+        try {
+          local = getUserLocalTime(now, timezone);
+        } catch {
+          timezone = "UTC";
+          local = getUserLocalTime(now, timezone);
+        }
+
+        // Generate digest in the 00:00-00:14 window (midnight)
+        if (local.hour !== 0 || local.minute >= 15) continue;
+
+        // Calculate yesterday's date using local calendar subtraction (DST-safe)
+        const [year, month, day] = local.dateString.split("-").map(Number);
+        const localCalendarDate = new Date(Date.UTC(year, month - 1, day));
+        localCalendarDate.setUTCDate(localCalendarDate.getUTCDate() - 1);
+        const targetDate = localCalendarDate.toISOString().slice(0, 10);
+
+        // Skip if already generated for this date
+        if (user.lastDigestDate === targetDate) continue;
+
+        await generateDailyDigest(
+          env,
+          db,
+          user.id,
+          targetDate,
+          async (chatId, message) => {
+            await sendTelegramMessage(env, chatId, message);
+          }
+        ).catch(() => {});
+      } catch {
+        // Skip this user, continue with others
+      }
+    }
+  } catch (err) {
+    await logProcessing(db, {
+      id: crypto.randomUUID(),
+      action: "digest_cron",
+      status: "error",
+      details: JSON.stringify({
+        error: err instanceof Error ? err.message : "Unknown error",
+      }),
+    }).catch(() => {});
+  }
+
+  // ── Reminders ────────────────────────────────────────────────────
   const activeReminders = await getAllActiveReminders(db);
 
   // Batch-fetch all users and last entry dates to avoid N+1 queries
