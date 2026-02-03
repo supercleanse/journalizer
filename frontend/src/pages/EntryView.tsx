@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -11,16 +12,32 @@ export default function EntryView() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+
   const { data, isLoading } = useQuery({
     queryKey: ["entry", id],
     queryFn: () => api.get<{ entry: Entry }>(`/api/entries/${id}`),
     enabled: !!id,
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (body: { polishedContent: string }) =>
+      api.put<{ entry: Entry }>(`/api/entries/${id}`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["entry", id] });
+      queryClient.invalidateQueries({ queryKey: ["entries"] });
+      setIsEditing(false);
+      toast.success("Entry updated");
+    },
+    onError: () => toast.error("Failed to update entry"),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`/api/entries/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["entries"] });
+      queryClient.invalidateQueries({ queryKey: ["entry-dates"] });
       toast.success("Entry deleted");
       navigate("/dashboard");
     },
@@ -51,6 +68,11 @@ export default function EntryView() {
     );
   }
 
+  const startEditing = () => {
+    setEditContent(entry.polishedContent || entry.rawContent || "");
+    setIsEditing(true);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -79,67 +101,144 @@ export default function EntryView() {
             </div>
           </div>
 
-          {entry.polishedContent && (
-            <div className="mb-4">
-              <p className="whitespace-pre-line leading-relaxed text-gray-800">
-                {entry.polishedContent}
-              </p>
+          {isEditing ? (
+            <div className="space-y-3">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                rows={12}
+                className="w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() =>
+                    updateMutation.mutate({
+                      polishedContent: editContent,
+                    })
+                  }
+                  disabled={updateMutation.isPending}
+                  className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              {entry.polishedContent && (
+                <p className="whitespace-pre-line leading-relaxed text-gray-800">
+                  {entry.polishedContent}
+                </p>
+              )}
+
+              {entry.rawContent && entry.polishedContent && (
+                <details className="mt-4 border-t border-gray-100 pt-4">
+                  <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-600">
+                    Show original
+                  </summary>
+                  <p className="mt-2 whitespace-pre-line text-sm text-gray-500">
+                    {entry.rawContent}
+                  </p>
+                </details>
+              )}
+
+              {entry.rawContent && !entry.polishedContent && (
+                <p className="whitespace-pre-line leading-relaxed text-gray-800">
+                  {entry.rawContent}
+                </p>
+              )}
+            </>
           )}
 
-          {entry.rawContent && entry.polishedContent && (
-            <details className="mt-4 border-t border-gray-100 pt-4">
-              <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-600">
-                Show original
-              </summary>
-              <p className="mt-2 whitespace-pre-line text-sm text-gray-500">
-                {entry.rawContent}
-              </p>
-            </details>
-          )}
-
-          {entry.rawContent && !entry.polishedContent && (
-            <p className="whitespace-pre-line leading-relaxed text-gray-800">
-              {entry.rawContent}
-            </p>
-          )}
-
+          {/* Media attachments */}
           {entry.media && entry.media.length > 0 && (
             <div className="mt-4 border-t border-gray-100 pt-4">
-              <h3 className="mb-2 text-sm font-medium text-gray-600">
+              <h3 className="mb-3 text-sm font-medium text-gray-600">
                 Attachments
               </h3>
-              <div className="space-y-2">
-                {entry.media.map((m) => (
-                  <div
-                    key={m.id}
-                    className="text-sm text-gray-500"
-                  >
-                    {m.originalFilename ?? m.mimeType}
-                    {m.sizeBytes && (
-                      <span className="ml-2 text-gray-400">
-                        ({Math.round(m.sizeBytes / 1024)} KB)
-                      </span>
-                    )}
-                  </div>
-                ))}
+              <div className="space-y-3">
+                {entry.media.map((m) => {
+                  if (m.mimeType.startsWith("image/")) {
+                    return (
+                      <img
+                        key={m.id}
+                        src={`/api/media/${m.id}/download`}
+                        alt={m.originalFilename ?? "Image"}
+                        className="max-h-96 rounded-md"
+                      />
+                    );
+                  }
+                  if (m.mimeType.startsWith("audio/")) {
+                    return (
+                      <div key={m.id}>
+                        <p className="mb-1 text-xs text-gray-400">
+                          {m.originalFilename ?? "Audio"}
+                        </p>
+                        <audio
+                          controls
+                          src={`/api/media/${m.id}/download`}
+                          className="w-full"
+                        />
+                      </div>
+                    );
+                  }
+                  if (m.mimeType.startsWith("video/")) {
+                    return (
+                      <div key={m.id}>
+                        <p className="mb-1 text-xs text-gray-400">
+                          {m.originalFilename ?? "Video"}
+                        </p>
+                        <video
+                          controls
+                          src={`/api/media/${m.id}/download`}
+                          className="max-h-96 w-full rounded-md"
+                        />
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={m.id} className="text-sm text-gray-500">
+                      {m.originalFilename ?? m.mimeType}
+                      {m.sizeBytes && (
+                        <span className="ml-2 text-gray-400">
+                          ({Math.round(m.sizeBytes / 1024)} KB)
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
         </article>
 
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={() => {
-              if (confirm("Delete this entry? This cannot be undone.")) {
-                deleteMutation.mutate();
-              }
-            }}
-            className="rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-          >
-            Delete entry
-          </button>
-        </div>
+        {/* Actions */}
+        {!isEditing && (
+          <div className="mt-4 flex justify-between">
+            <button
+              onClick={startEditing}
+              className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => {
+                if (confirm("Delete this entry? This cannot be undone.")) {
+                  deleteMutation.mutate();
+                }
+              }}
+              className="rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            >
+              Delete
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );
