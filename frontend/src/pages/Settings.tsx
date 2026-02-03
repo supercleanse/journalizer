@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   useQuery,
   useMutation,
@@ -15,6 +15,176 @@ const voiceStyles = [
   { value: "reflective", label: "Reflective" },
   { value: "polished", label: "Polished" },
 ];
+
+function getUtcOffset(tz: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      timeZoneName: "shortOffset",
+    }).formatToParts(new Date());
+    const offset = parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+    return offset.replace("GMT", "UTC");
+  } catch {
+    return "";
+  }
+}
+
+const ALL_TIMEZONES = Intl.supportedValuesOf("timeZone");
+const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+interface TimezoneOption {
+  value: string;
+  label: string;
+  region: string;
+  offset: string;
+}
+
+function buildTimezoneOptions(): TimezoneOption[] {
+  return ALL_TIMEZONES.map((tz) => {
+    const offset = getUtcOffset(tz);
+    const region = tz.split("/")[0];
+    const city = tz.replace(/_/g, " ");
+    return { value: tz, label: `${city} (${offset})`, region, offset };
+  });
+}
+
+function TimezoneSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (tz: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const options = useMemo(() => buildTimezoneOptions(), []);
+
+  const filtered = useMemo(() => {
+    if (!search) return options;
+    const q = search.toLowerCase();
+    return options.filter(
+      (o) =>
+        o.value.toLowerCase().includes(q) ||
+        o.label.toLowerCase().includes(q)
+    );
+  }, [options, search]);
+
+  // Group by region
+  const grouped = useMemo(() => {
+    const groups: Record<string, TimezoneOption[]> = {};
+    for (const o of filtered) {
+      if (!groups[o.region]) groups[o.region] = [];
+      groups[o.region].push(o);
+    }
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [filtered]);
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? value;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v);
+          setSearch("");
+        }}
+        className="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm"
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <svg
+          className="ml-2 h-4 w-4 shrink-0 text-gray-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+          <div className="p-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search timezones..."
+              autoFocus
+              className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
+            />
+          </div>
+          <ul className="max-h-60 overflow-y-auto px-1 pb-1">
+            {value !== detectedTimezone && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(detectedTimezone);
+                    setOpen(false);
+                  }}
+                  className="w-full rounded px-3 py-1.5 text-left text-sm text-blue-600 hover:bg-blue-50"
+                >
+                  Detected: {detectedTimezone} ({getUtcOffset(detectedTimezone)})
+                </button>
+              </li>
+            )}
+            {grouped.map(([region, tzs]) => (
+              <li key={region}>
+                <div className="sticky top-0 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-400">
+                  {region}
+                </div>
+                {tzs.map((tz) => (
+                  <button
+                    key={tz.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(tz.value);
+                      setOpen(false);
+                    }}
+                    className={`w-full rounded px-3 py-1.5 text-left text-sm hover:bg-gray-100 ${
+                      tz.value === value
+                        ? "bg-gray-100 font-medium text-gray-900"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    {tz.label}
+                  </button>
+                ))}
+              </li>
+            ))}
+            {filtered.length === 0 && (
+              <li className="px-3 py-2 text-sm text-gray-400">
+                No timezones found
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -170,14 +340,9 @@ export default function Settings() {
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Timezone
             </label>
-            <input
-              type="text"
+            <TimezoneSelect
               value={form.timezone}
-              onChange={(e) =>
-                setForm({ ...form, timezone: e.target.value })
-              }
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              placeholder="America/New_York"
+              onChange={(tz) => setForm({ ...form, timezone: tz })}
             />
           </div>
 
