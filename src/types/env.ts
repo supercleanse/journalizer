@@ -2,6 +2,7 @@ export interface Env {
   DB: D1Database;
   MEDIA: R2Bucket;
   KV: KVNamespace;
+  ASSETS: Fetcher;
   ENVIRONMENT: string;
   ALLOWED_ORIGINS: string;
   GOOGLE_CLIENT_ID: string;

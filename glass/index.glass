@@ -24,6 +24,9 @@ guarantees:
     - "/api/webhooks/* routes use their own auth (Twilio signature, etc.)"
     - "/api/* routes require valid JWT session cookie"
     - "All errors return structured JSON: { error: { message, code, status } }"
+    - "Non-API GET requests serve frontend static assets from ASSETS binding"
+    - "Unmatched GET requests fall back to index.html for SPA client-side routing"
+    - "GET /api/health returns JSON health check response"
   on_failure:
     - "Unhandled errors are caught by global error handler"
     - "Error responses never expose internal details or stack traces"
