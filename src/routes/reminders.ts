@@ -1,16 +1,117 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import type { AppContext } from "../types/env";
+import { createDb } from "../db/index";
+import {
+  listReminders,
+  createReminder,
+  updateReminder,
+  deleteReminder,
+} from "../db/queries";
 
 const remindersRoutes = new Hono<AppContext>();
 
-// GET /api/reminders — get reminder configuration
+const createReminderSchema = z
+  .object({
+    reminderType: z.enum(["daily", "weekly", "monthly", "smart"]),
+    timeOfDay: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+      .optional(),
+    dayOfWeek: z.number().int().min(0).max(6).optional(),
+    dayOfMonth: z.number().int().min(1).max(28).optional(),
+    smartThreshold: z.number().int().min(1).max(14).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.reminderType === "weekly" && data.dayOfWeek === undefined)
+        return false;
+      if (data.reminderType === "monthly" && data.dayOfMonth === undefined)
+        return false;
+      return true;
+    },
+    { message: "weekly requires dayOfWeek; monthly requires dayOfMonth" }
+  );
+
+// GET /api/reminders — list user reminders
 remindersRoutes.get("/", async (c) => {
-  return c.json({ error: "Not implemented" }, 501);
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+  const result = await listReminders(db, userId);
+  return c.json({ reminders: result });
 });
 
-// PUT /api/reminders — update reminders
-remindersRoutes.put("/", async (c) => {
-  return c.json({ error: "Not implemented" }, 501);
+// POST /api/reminders — create a reminder
+remindersRoutes.post("/", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const parsed = createReminderSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      { error: "Validation failed", details: parsed.error.flatten() },
+      400
+    );
+  }
+
+  const db = createDb(c.env.DB);
+  const reminder = await createReminder(db, {
+    id: crypto.randomUUID(),
+    userId,
+    ...parsed.data,
+  });
+
+  return c.json({ reminder }, 201);
+});
+
+const updateReminderSchema = z.object({
+  reminderType: z.enum(["daily", "weekly", "monthly", "smart"]).optional(),
+  timeOfDay: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
+  dayOfWeek: z.number().int().min(0).max(6).optional(),
+  dayOfMonth: z.number().int().min(1).max(28).optional(),
+  smartThreshold: z.number().int().min(1).max(14).optional(),
+  isActive: z.number().int().min(0).max(1).optional(),
+});
+
+// PUT /api/reminders/:id — update a reminder
+remindersRoutes.put("/:id", async (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  const body = await c.req.json();
+
+  const parsed = updateReminderSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      { error: "Validation failed", details: parsed.error.flatten() },
+      400
+    );
+  }
+
+  const db = createDb(c.env.DB);
+  const reminder = await updateReminder(db, id, userId, parsed.data);
+
+  if (!reminder) {
+    return c.json({ error: "Reminder not found" }, 404);
+  }
+
+  return c.json({ reminder });
+});
+
+// DELETE /api/reminders/:id — delete a reminder
+remindersRoutes.delete("/:id", async (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  const db = createDb(c.env.DB);
+
+  const deleted = await deleteReminder(db, id, userId);
+  if (!deleted) {
+    return c.json({ error: "Reminder not found" }, 404);
+  }
+
+  return c.json({ success: true });
 });
 
 export default remindersRoutes;
