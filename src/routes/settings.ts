@@ -30,9 +30,17 @@ settings.get("/", async (c) => {
   });
 });
 
+const validTimezones = new Set(Intl.supportedValuesOf("timeZone"));
+
 const updateSettingsSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
-  timezone: z.string().min(1).optional(),
+  timezone: z
+    .string()
+    .min(1)
+    .refine((tz) => validTimezones.has(tz), {
+      message: "Invalid timezone",
+    })
+    .optional(),
   voiceStyle: z
     .enum(["natural", "conversational", "reflective", "polished"])
     .optional(),
