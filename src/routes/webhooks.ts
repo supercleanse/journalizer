@@ -55,21 +55,32 @@ async function processJournalMessage(
     else if (message.video) entryType = "video";
     else if (message.photo) entryType = "photo";
 
-    if ((entryType === "audio" || entryType === "video") && !rawContent) {
-      rawContent = `[${entryType === "audio" ? "Voice" : "Video"} message]`;
+    if (!rawContent) {
+      if (entryType === "audio") rawContent = "[Voice message]";
+      else if (entryType === "video") rawContent = "[Video message]";
+      else if (entryType === "photo") rawContent = "[Photo]";
     }
   }
 
   // Create the entry first so processing_log FK references are valid
   const today = new Date().toISOString().split("T")[0];
-  await createEntry(db, {
-    id: entryId,
-    userId: user.id,
-    rawContent: rawContent || undefined,
-    entryType,
-    source: "telegram",
-    entryDate: today,
-  });
+  try {
+    await createEntry(db, {
+      id: entryId,
+      userId: user.id,
+      rawContent: rawContent || undefined,
+      entryType,
+      source: "telegram",
+      entryDate: today,
+    });
+  } catch {
+    await sendTelegramMessage(
+      env,
+      chatId,
+      "Sorry, there was an error saving your journal entry. Please try again."
+    );
+    return;
+  }
 
   await logProcessing(db, {
     id: crypto.randomUUID(),
