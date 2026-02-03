@@ -58,7 +58,7 @@ export default function Settings() {
 
   // ── Telegram linking ──
   const [linkCode, setLinkCode] = useState<string | null>(null);
-  const [botUsername, setBotUsername] = useState<string>("JournalizerCaseproofBot");
+  const [botUsername, setBotUsername] = useState<string>("JournalizerAppBot");
 
   const linkTelegramMutation = useMutation({
     mutationFn: () =>

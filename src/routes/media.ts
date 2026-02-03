@@ -3,6 +3,9 @@ import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
 import { getMedia, uploadMedia } from "../services/media";
 
+// Glass contract: failure modes
+export { ValidationError, MediaNotFound, UploadFailed } from "../lib/errors";
+
 const mediaRoutes = new Hono<AppContext>();
 
 // POST /api/media/upload — upload media file to R2

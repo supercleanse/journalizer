@@ -1,0 +1,34 @@
+=== Glass Unit ===
+id: frontend.types
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Shared TypeScript type definitions for the frontend application. Defines interfaces for all API response shapes used across pages and components.
+source:
+  kind: ai-generated
+  reference: "Frontend architecture — type safety"
+parent: frontend.app
+stakeholder: engineering
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Types align with backend API response shapes"
+guarantees:
+  on_success:
+    - "User interface: displayName, email, timezone, telegramLinked, voiceStyle, voiceNotes"
+    - "Entry interface: id, userId, rawContent, polishedContent, entryType, source, entryDate, createdAt, media array"
+    - "MediaAttachment interface: id, entryId, mediaType, mimeType, r2Key, fileSize, durationSeconds, transcription"
+    - "Reminder interface: id, reminderType (daily/weekly/monthly/smart), timeOfDay, dayOfWeek, dayOfMonth, smartThreshold, isActive (boolean)"
+    - "PaginatedResponse<T> generic wrapper with entries, total, offset, limit"
+    - "AuthUser interface: id, email, displayName, avatarUrl, timezone, telegramLinked, voiceStyle, createdAt"
+  on_failure:
+    - "Type mismatches caught at compile time"
+invariants:
+  - "Reminder.isActive is boolean (converted from integer by backend)"
+  - "Entry.source includes 'telegram' as valid value"
+  - "All nullable fields typed as T | null"
+fails:
+  TypeMismatch: "Caught at compile time by TypeScript"

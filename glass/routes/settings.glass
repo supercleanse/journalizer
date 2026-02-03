@@ -1,0 +1,39 @@
+=== Glass Unit ===
+id: routes.settings
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: API endpoints for user settings management and Telegram account linking. Users configure their profile, AI voice preferences, and connect their Telegram account for messaging-based journaling.
+source:
+  kind: prd
+  reference: "PRD Section 10.4 — User Settings"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated (JWT validated by auth middleware)"
+  - "KV binding available for linking code storage and rate limiting"
+guarantees:
+  on_success:
+    - "GET /api/settings returns user profile including telegramLinked status"
+    - "PUT /api/settings updates displayName, timezone, voiceStyle, voiceNotes with Zod validation"
+    - "POST /api/settings/link-telegram generates 8-char alphanumeric code stored in KV with 10-min TTL"
+    - "POST /api/settings/unlink-telegram removes telegramChatId from user record"
+    - "Linking code generation rate-limited to 5 per hour per user"
+  on_failure:
+    - "Invalid JSON body returns 400"
+    - "Validation failure throws ValidationError (400)"
+    - "User not found returns 404"
+    - "Rate limit exceeded returns 429"
+    - "Code collision returns 409 (retry)"
+invariants:
+  - "All endpoints scoped to authenticated user via JWT"
+  - "voiceStyle restricted to enum: natural, conversational, reflective, polished"
+  - "Linking codes use uniform random distribution over [0-9A-Z]"
+  - "Code collision checked before KV write"
+fails:
+  ValidationError: "Return 400 with validation details"

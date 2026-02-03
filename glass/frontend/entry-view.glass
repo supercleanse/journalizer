@@ -1,0 +1,39 @@
+=== Glass Unit ===
+id: frontend.entry-view
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Entry detail page that displays a single journal entry with its polished content, original content, media attachments, and supports inline editing and deletion.
+source:
+  kind: prd
+  reference: "PRD Section 9.3 — Entry Detail View"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Entry ID provided via URL parameter (:id)"
+  - "User authenticated (protected route)"
+  - "React Query configured for data fetching"
+guarantees:
+  on_success:
+    - "Displays entry date, type badge, and source badge"
+    - "Shows polished content as primary view"
+    - "Original content available in collapsible details element"
+    - "Media attachments rendered by type (images, audio players, video players)"
+    - "Edit mode enables inline textarea editing of polished content"
+    - "Delete shows confirmation dialog before removing entry"
+    - "Query cache invalidated on update or delete"
+  on_failure:
+    - "Loading state shown during fetch"
+    - "API errors displayed as toast notifications"
+    - "Navigates back to dashboard after deletion"
+invariants:
+  - "Entry access scoped to authenticated user (enforced by API)"
+  - "Edit mutation preserves all fields except polishedContent"
+fails:
+  EntryNotFound: "Entry not found or not owned by user"
+  APIError: "Display toast notification"

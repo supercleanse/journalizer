@@ -1,0 +1,31 @@
+=== Glass Unit ===
+id: frontend.login
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Login page that initiates Google OAuth 2.0 authentication. Provides a minimal, centered UI with a single "Continue with Google" button.
+source:
+  kind: prd
+  reference: "PRD Section 7 — Authentication"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Auth context available via useAuth hook"
+  - "Google OAuth endpoint configured on backend"
+guarantees:
+  on_success:
+    - "Renders centered card with Google login button and inline Google logo SVG"
+    - "Button click calls login() which redirects to /auth/google"
+    - "Authenticated users redirected to dashboard (handled by App router)"
+  on_failure:
+    - "OAuth redirect failure handled by browser (server-side error page)"
+invariants:
+  - "No credentials stored or processed client-side"
+  - "Login flow is server-redirect based (no client-side token handling)"
+fails:
+  OAuthRedirectFailed: "Browser navigates to error page"

@@ -1,0 +1,32 @@
+=== Glass Unit ===
+id: frontend.entry-card
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Compact entry preview card for the dashboard timeline. Shows time, entry type badge, content preview, and toggle between polished and original content.
+source:
+  kind: prd
+  reference: "PRD Section 9.1 — Dashboard Entry List"
+parent: frontend.dashboard
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Entry object with id, polishedContent, rawContent, entryType, source, createdAt"
+guarantees:
+  on_success:
+    - "Displays time (HH:MM AM/PM) from createdAt"
+    - "Entry type badge (Text, Photo, Audio, Video)"
+    - "Source badge for SMS/Telegram entries"
+    - "Content preview truncated at 300 characters with ellipsis"
+    - "Toggle button to view original content when both versions exist and differ"
+  on_failure:
+    - "Missing content displays empty card with type badge only"
+invariants:
+  - "Preview prefers polishedContent, falls back to rawContent"
+  - "Toggle only shown when polishedContent and rawContent both exist and differ"
+fails:
+  RenderError: "Missing or null content fields handled gracefully"

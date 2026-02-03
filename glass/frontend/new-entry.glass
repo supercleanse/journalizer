@@ -1,0 +1,38 @@
+=== Glass Unit ===
+id: frontend.new-entry
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: New entry creation form with text input, date picker, AI polish toggle, and file attachment support. Infers entry type from attached media MIME type.
+source:
+  kind: prd
+  reference: "PRD Section 9.2 — New Entry Form"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User authenticated (protected route)"
+  - "Backend API available for entry creation and media upload"
+guarantees:
+  on_success:
+    - "Date picker defaults to today"
+    - "Textarea for entry content"
+    - "AI Polish checkbox requests server-side AI polishing"
+    - "File input accepts images, audio, and video"
+    - "Entry type inferred from first file MIME type (audio/video/photo or text)"
+    - "Media uploaded sequentially after entry creation"
+    - "Redirects to entry view on success"
+  on_failure:
+    - "Validates that content or at least one file is present before submission"
+    - "API errors displayed as toast notifications"
+invariants:
+  - "Empty rawContent sent as undefined (not empty string)"
+  - "File previews show name and size with remove button"
+  - "Form disabled during submission to prevent double-submit"
+fails:
+  ValidationError: "Content or file required"
+  APIError: "Display toast notification"

@@ -1,0 +1,35 @@
+=== Glass Unit ===
+id: frontend.api
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: HTTP client wrapper for all frontend-to-backend API communication. Provides typed request methods with automatic credential inclusion, JSON parsing, and error handling.
+source:
+  kind: ai-generated
+  reference: "Frontend architecture — API abstraction layer"
+parent: frontend.app
+stakeholder: engineering
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Backend API available at relative paths (/api/*, /auth/*)"
+  - "Session cookie set by auth flow for credentials"
+guarantees:
+  on_success:
+    - "All requests include credentials: 'include' for cookie auth"
+    - "POST/PUT requests auto-set Content-Type: application/json"
+    - "Generic type parameter T for type-safe response parsing"
+    - "204 No Content responses return undefined"
+    - "api object provides get, post, put, delete, upload methods"
+    - "upload method sends FormData without Content-Type (browser sets boundary)"
+  on_failure:
+    - "Non-ok responses throw ApiError with status and parsed body"
+    - "ApiError class carries status code and response data"
+invariants:
+  - "Credentials always included (cookie-based auth)"
+  - "JSON Content-Type only set for non-FormData requests"
+fails:
+  ApiError: "HTTP response not ok — carries status and error body"

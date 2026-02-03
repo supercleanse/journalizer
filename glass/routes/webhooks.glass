@@ -1,0 +1,42 @@
+=== Glass Unit ===
+id: routes.webhooks
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Inbound webhook handlers for external services. The Telegram webhook receives messages from linked users and creates journal entries. Supports text, photos, voice, audio, and video messages. Also handles account linking via ephemeral codes.
+source:
+  kind: prd
+  reference: "PRD Section 8 — Messaging Integration"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "TELEGRAM_WEBHOOK_SECRET configured and registered with Telegram via setWebhook"
+  - "TELEGRAM_BOT_TOKEN configured for outbound Telegram API calls"
+  - "KV binding available for linking code lookup and rate limiting"
+guarantees:
+  on_success:
+    - "Telegram webhook validates X-Telegram-Bot-Api-Secret-Token header"
+    - "/start command sends welcome message with linking instructions"
+    - "8-char alphanumeric codes are matched against KV, linking chat ID to user on match"
+    - "Linked users' messages create journal entries with appropriate entryType (text, audio, photo, video)"
+    - "Media attachments downloaded from Telegram and stored in R2"
+    - "Text content polished via AI when available"
+    - "Voice/video messages without text get placeholder rawContent"
+    - "Journal processing runs in background via waitUntil to avoid webhook timeout"
+  on_failure:
+    - "Invalid webhook secret returns 403"
+    - "Unlinked users receive instructional message"
+    - "Media download failures logged but do not prevent entry creation"
+    - "AI polish failures fall back to raw content"
+invariants:
+  - "Webhook always returns { ok: true } to Telegram (except auth failure)"
+  - "Linking codes deleted from KV after successful use"
+  - "Linking attempts rate-limited to 10 per hour per chat ID"
+  - "Entry date set to current UTC date (no time component)"
+fails:
+  InvalidSignature: "Return 403 — webhook secret mismatch"

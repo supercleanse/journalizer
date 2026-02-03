@@ -97,7 +97,7 @@ settings.post("/link-telegram", async (c) => {
   return c.json({
     success: true,
     code,
-    botUsername: "JournalizerCaseproofBot",
+    botUsername: "JournalizerAppBot",
     message: `Send this code to the Journalizer bot on Telegram: ${code}`,
   });
 });

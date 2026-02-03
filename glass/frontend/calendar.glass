@@ -1,0 +1,34 @@
+=== Glass Unit ===
+id: frontend.calendar
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Interactive month calendar component that highlights days with journal entries and supports date selection for filtering the dashboard timeline.
+source:
+  kind: prd
+  reference: "PRD Section 9.1 — Dashboard Calendar"
+parent: frontend.dashboard
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Set of entry date strings (YYYY-MM-DD format)"
+  - "Optional selected date and onSelect callback"
+guarantees:
+  on_success:
+    - "Renders month grid with Sun-Sat column headers"
+    - "Previous/next month navigation buttons"
+    - "Days with entries marked with blue dot indicator"
+    - "Click date to select (filters dashboard), click again to deselect"
+    - "Previous/next month dates shown in muted color"
+  on_failure:
+    - "Empty entryDates set renders calendar with no highlights"
+invariants:
+  - "Calendar always shows complete weeks (padding from adjacent months)"
+  - "Today's date visually distinguished"
+  - "Selection is toggle-based (click selected date to clear)"
+fails:
+  RenderError: "Invalid date input handled gracefully"

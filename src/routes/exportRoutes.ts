@@ -3,6 +3,9 @@ import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
 import { listEntries, getMediaCountsByEntries } from "../db/queries";
 
+// Glass contract: failure modes
+export { DatabaseError } from "../lib/errors";
+
 const exportRoutes = new Hono<AppContext>();
 
 // GET /api/export/json — export all entries as JSON

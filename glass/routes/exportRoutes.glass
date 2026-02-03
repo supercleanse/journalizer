@@ -1,0 +1,36 @@
+=== Glass Unit ===
+id: routes.exportRoutes
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Data export endpoints for downloading journal entries as JSON or PDF. Allows users to export their complete journal history in portable formats.
+source:
+  kind: prd
+  reference: "PRD Section 10.5 — Data Export"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated (JWT validated by auth middleware)"
+  - "D1 database available for entry queries"
+guarantees:
+  on_success:
+    - "GET /api/export/json returns up to 1000 entries with media counts as JSON attachment"
+    - "GET /api/export/pdf returns up to 500 entries as a valid PDF 1.4 document"
+    - "JSON includes exportedAt timestamp, entryCount, and entries array"
+    - "PDF uses Courier font, 10pt, A4 pages with proper pagination"
+    - "Content-Disposition header sets date-stamped filename"
+    - "Entries prefer polishedContent over rawContent, fall back to '(no content)'"
+  on_failure:
+    - "Database query errors propagate to global error handler"
+invariants:
+  - "All exported entries belong to the authenticated user"
+  - "PDF generation uses no external dependencies (manual PDF construction)"
+  - "PDF text escapes special characters (backslash, parens)"
+  - "PDF xref offsets are accurate for seekable readers"
+fails:
+  DatabaseError: "Propagate to global error handler"
