@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
@@ -45,6 +45,16 @@ export default function EntryView() {
   });
 
   const entry = data?.entry;
+  const isDigest = entry?.entryType === "digest";
+
+  const [showSources, setShowSources] = useState(false);
+
+  const { data: sourcesData, isLoading: sourcesLoading } = useQuery({
+    queryKey: ["source-entries", id],
+    queryFn: () =>
+      api.get<{ entries: Entry[] }>(`/api/entries/${id}/source-entries`),
+    enabled: isDigest && showSources,
+  });
 
   if (isLoading) {
     return (
@@ -84,18 +94,35 @@ export default function EntryView() {
           &larr; Back
         </button>
 
-        <article className="rounded-lg border border-gray-200 bg-white p-6">
+        <article
+          className={`rounded-lg border p-6 ${
+            isDigest
+              ? "border-purple-200 bg-purple-50/30"
+              : "border-gray-200 bg-white"
+          }`}
+        >
           <div className="mb-4 flex items-center justify-between">
             <time className="text-sm text-gray-500">
               {format(new Date(entry.entryDate), "EEEE, MMMM d, yyyy")}
             </time>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                {entry.entryType}
-              </span>
+              {isDigest ? (
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                  Daily Digest
+                </span>
+              ) : (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                  {entry.entryType}
+                </span>
+              )}
               {entry.source === "sms" && (
                 <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
                   SMS
+                </span>
+              )}
+              {entry.source === "telegram" && (
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-600">
+                  Telegram
                 </span>
               )}
             </div>
@@ -211,6 +238,61 @@ export default function EntryView() {
                   );
                 })}
               </div>
+            </div>
+          )}
+          {/* Source entries for digests */}
+          {isDigest && (
+            <div className="mt-4 border-t border-purple-100 pt-4">
+              <button
+                onClick={() => setShowSources((v) => !v)}
+                className="text-sm font-medium text-purple-600 hover:text-purple-800"
+              >
+                {showSources ? "Hide source entries" : "View source entries"}
+              </button>
+              {showSources && (
+                <div className="mt-3 space-y-3">
+                  {sourcesLoading ? (
+                    <p className="text-sm text-gray-400">
+                      Loading source entries...
+                    </p>
+                  ) : sourcesData?.entries.length === 0 ? (
+                    <p className="text-sm text-gray-400">
+                      No source entries found.
+                    </p>
+                  ) : (
+                    sourcesData?.entries.map((src) => (
+                      <Link
+                        key={src.id}
+                        to={`/entry/${src.id}`}
+                        className="block rounded-md border border-gray-200 bg-white p-3 transition-colors hover:border-gray-300"
+                      >
+                        <div className="mb-1 flex items-center gap-2 text-xs text-gray-400">
+                          <time>
+                            {format(
+                              new Date(src.createdAt ?? src.entryDate),
+                              "h:mm a"
+                            )}
+                          </time>
+                          <span className="rounded-full bg-gray-100 px-1.5 py-0.5 font-medium text-gray-500">
+                            {src.entryType}
+                          </span>
+                        </div>
+                        {(src.polishedContent || src.rawContent) && (
+                          <p className="line-clamp-3 text-sm text-gray-700">
+                            {src.polishedContent || src.rawContent}
+                          </p>
+                        )}
+                        {src.media && src.media.length > 0 && (
+                          <p className="mt-1 text-xs text-gray-400">
+                            {src.media.length} attachment
+                            {src.media.length !== 1 ? "s" : ""}
+                          </p>
+                        )}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
         </article>

@@ -19,6 +19,7 @@ export const users = sqliteTable(
     voiceNotes: text("voice_notes"),
     timezone: text("timezone").default("America/New_York"),
     role: text("role").notNull().default("user"),
+    lastDigestDate: text("last_digest_date"),
     createdAt: text("created_at").default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").default(sql`(datetime('now'))`),
   },
@@ -111,6 +112,24 @@ export const processingLog = sqliteTable(
   (table) => [
     index("idx_processing_log_entry").on(table.entryId),
     index("idx_processing_log_status").on(table.status, table.createdAt),
+  ]
+);
+
+export const digestEntries = sqliteTable(
+  "digest_entries",
+  {
+    id: text("id").primaryKey(),
+    digestId: text("digest_id")
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    sourceEntryId: text("source_entry_id")
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_digest_entries_digest").on(table.digestId),
+    index("idx_digest_entries_source").on(table.sourceEntryId),
   ]
 );
 

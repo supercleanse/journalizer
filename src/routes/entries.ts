@@ -11,6 +11,9 @@ import {
   deleteEntry,
   getUserById,
   getMediaByEntry,
+  getMediaByEntryIds,
+  getDigestSourceEntries,
+  getDigestMediaForEntries,
 } from "../db/queries";
 import { polishEntryWithLogging } from "../services/ai";
 import type { VoiceStyle } from "../services/ai";
@@ -32,12 +35,34 @@ entries.get("/", async (c) => {
     startDate: c.req.query("startDate"),
     endDate: c.req.query("endDate"),
     entryType: c.req.query("entryType"),
+    excludeType: c.req.query("excludeType"),
     source: c.req.query("source"),
     search: c.req.query("search"),
   });
 
+  // Attach media records to each entry
+  const entryIds = result.entries.map((e) => e.id);
+  const mediaByEntry = await getMediaByEntryIds(db, entryIds);
+
+  // For digest entries, merge media from all source entries
+  const digestIds = result.entries
+    .filter((e) => e.entryType === "digest")
+    .map((e) => e.id);
+  const digestMedia =
+    digestIds.length > 0
+      ? await getDigestMediaForEntries(db, digestIds)
+      : {};
+
+  const entriesWithMedia = result.entries.map((e) => ({
+    ...e,
+    media:
+      e.entryType === "digest"
+        ? digestMedia[e.id] ?? []
+        : mediaByEntry[e.id] ?? [],
+  }));
+
   return c.json({
-    entries: result.entries,
+    entries: entriesWithMedia,
     total: result.total,
     limit,
     offset,
@@ -52,6 +77,24 @@ entries.get("/dates", async (c) => {
   return c.json({ dates });
 });
 
+// GET /api/entries/:id/source-entries — get source entries for a digest
+entries.get("/:id/source-entries", async (c) => {
+  const userId = c.get("userId");
+  const digestId = c.req.param("id");
+  const db = createDb(c.env.DB);
+
+  const entry = await getEntryById(db, digestId, userId);
+  if (!entry) {
+    throw new EntryNotFound();
+  }
+  if (entry.entryType !== "digest") {
+    return c.json({ entries: [] });
+  }
+
+  const sourceEntries = await getDigestSourceEntries(db, digestId, userId);
+  return c.json({ entries: sourceEntries });
+});
+
 // GET /api/entries/:id — get single entry with media
 entries.get("/:id", async (c) => {
   const userId = c.get("userId");
@@ -63,13 +106,19 @@ entries.get("/:id", async (c) => {
     throw new EntryNotFound();
   }
 
+  // For digest entries, merge media from all source entries
+  if (entry.entryType === "digest") {
+    const digestMedia = await getDigestMediaForEntries(db, [entryId]);
+    return c.json({ entry: { ...entry, media: digestMedia[entryId] ?? [] } });
+  }
+
   return c.json({ entry });
 });
 
 const createEntrySchema = z.object({
   rawContent: z.string().min(1).optional(),
-  entryType: z.enum(["text", "audio", "video", "photo"]),
-  source: z.enum(["sms", "web"]).default("web"),
+  entryType: z.enum(["text", "audio", "video", "photo", "digest"]),
+  source: z.enum(["sms", "web", "telegram", "system"]).default("web"),
   mood: z.string().optional(),
   tags: z.string().optional(),
   location: z.string().optional(),

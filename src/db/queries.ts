@@ -1,6 +1,13 @@
-import { eq, desc, and, sql, like, or, lte, gte } from "drizzle-orm";
+import { eq, ne, desc, and, sql, like, or, lte, gte } from "drizzle-orm";
 import type { Database } from "./index";
-import { users, entries, media, reminders, processingLog } from "./schema";
+import {
+  users,
+  entries,
+  media,
+  reminders,
+  processingLog,
+  digestEntries,
+} from "./schema";
 
 // Glass contract: failure modes (soft failures return null)
 export { RecordNotFound, DatabaseError } from "../lib/errors";
@@ -88,6 +95,7 @@ export interface ListEntriesOptions {
   startDate?: string;
   endDate?: string;
   entryType?: string;
+  excludeType?: string;
   source?: string;
   search?: string;
 }
@@ -97,13 +105,14 @@ export async function listEntries(
   userId: string,
   options: ListEntriesOptions = {}
 ) {
-  const { limit = 20, offset = 0, startDate, endDate, entryType, source, search } = options;
+  const { limit = 20, offset = 0, startDate, endDate, entryType, excludeType, source, search } = options;
 
   const conditions = [eq(entries.userId, userId)];
 
   if (startDate) conditions.push(gte(entries.entryDate, startDate));
   if (endDate) conditions.push(lte(entries.entryDate, endDate));
   if (entryType) conditions.push(eq(entries.entryType, entryType));
+  if (excludeType) conditions.push(ne(entries.entryType, excludeType));
   if (source) conditions.push(eq(entries.source, source));
   if (search) {
     // Escape LIKE wildcards to prevent pattern injection
@@ -227,6 +236,28 @@ export async function createMedia(
 
 export async function getMediaByEntry(db: Database, entryId: string) {
   return db.select().from(media).where(eq(media.entryId, entryId));
+}
+
+export async function getMediaByEntryIds(
+  db: Database,
+  entryIds: string[]
+): Promise<Record<string, typeof media.$inferSelect[]>> {
+  if (entryIds.length === 0) return {};
+  const rows = await db
+    .select()
+    .from(media)
+    .where(
+      sql`${media.entryId} IN (${sql.join(
+        entryIds.map((id) => sql`${id}`),
+        sql`, `
+      )})`
+    );
+  const result: Record<string, typeof media.$inferSelect[]> = {};
+  for (const row of rows) {
+    if (!result[row.entryId]) result[row.entryId] = [];
+    result[row.entryId].push(row);
+  }
+  return result;
 }
 
 export async function getMediaCountsByEntries(
@@ -407,6 +438,189 @@ export async function updateReminderLastSent(
     .update(reminders)
     .set({ lastSentAt: timestamp })
     .where(eq(reminders.id, id));
+}
+
+// ── Digests ─────────────────────────────────────────────────────────
+
+export async function getAllUsers(db: Database) {
+  return db.select().from(users);
+}
+
+export async function updateUserLastDigestDate(
+  db: Database,
+  userId: string,
+  date: string
+) {
+  await db
+    .update(users)
+    .set({ lastDigestDate: date, updatedAt: sql`(datetime('now'))` })
+    .where(eq(users.id, userId));
+}
+
+export async function getEntriesForDate(db: Database, userId: string, date: string) {
+  const rows = await db
+    .select()
+    .from(entries)
+    .where(
+      and(
+        eq(entries.userId, userId),
+        eq(entries.entryDate, date),
+        ne(entries.entryType, "digest")
+      )
+    )
+    .orderBy(entries.createdAt);
+
+  if (rows.length === 0) return [];
+
+  const entryIds = rows.map((r) => r.id);
+  const mediaRows = await db
+    .select()
+    .from(media)
+    .where(
+      sql`${media.entryId} IN (${sql.join(
+        entryIds.map((id) => sql`${id}`),
+        sql`, `
+      )})`
+    );
+
+  const mediaByEntry: Record<string, typeof media.$inferSelect[]> = {};
+  for (const row of mediaRows) {
+    if (!mediaByEntry[row.entryId]) mediaByEntry[row.entryId] = [];
+    mediaByEntry[row.entryId].push(row);
+  }
+
+  return rows.map((r) => ({ ...r, media: mediaByEntry[r.id] ?? [] }));
+}
+
+export async function createDigest(
+  db: Database,
+  data: {
+    id: string;
+    userId: string;
+    rawContent?: string;
+    polishedContent: string;
+    entryDate: string;
+    sourceEntryIds: string[];
+  }
+) {
+  await db.insert(entries).values({
+    id: data.id,
+    userId: data.userId,
+    rawContent: data.rawContent,
+    polishedContent: data.polishedContent,
+    entryType: "digest",
+    source: "system",
+    entryDate: data.entryDate,
+  });
+
+  for (const sourceId of data.sourceEntryIds) {
+    await db.insert(digestEntries).values({
+      id: crypto.randomUUID(),
+      digestId: data.id,
+      sourceEntryId: sourceId,
+    });
+  }
+
+  return getEntryById(db, data.id, data.userId);
+}
+
+export async function getDigestSourceEntryIds(
+  db: Database,
+  digestId: string
+): Promise<string[]> {
+  const rows = await db
+    .select({ sourceEntryId: digestEntries.sourceEntryId })
+    .from(digestEntries)
+    .where(eq(digestEntries.digestId, digestId));
+  return rows.map((r) => r.sourceEntryId);
+}
+
+export async function getDigestSourceEntries(
+  db: Database,
+  digestId: string,
+  userId: string
+) {
+  const sourceIds = await getDigestSourceEntryIds(db, digestId);
+  if (sourceIds.length === 0) return [];
+
+  const rows = await db
+    .select()
+    .from(entries)
+    .where(
+      and(
+        eq(entries.userId, userId),
+        sql`${entries.id} IN (${sql.join(
+          sourceIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`
+      )
+    )
+    .orderBy(entries.createdAt);
+
+  const mediaRows = await db
+    .select()
+    .from(media)
+    .where(
+      sql`${media.entryId} IN (${sql.join(
+        sourceIds.map((id) => sql`${id}`),
+        sql`, `
+      )})`
+    );
+
+  const mediaByEntry: Record<string, typeof media.$inferSelect[]> = {};
+  for (const row of mediaRows) {
+    if (!mediaByEntry[row.entryId]) mediaByEntry[row.entryId] = [];
+    mediaByEntry[row.entryId].push(row);
+  }
+
+  return rows.map((r) => ({ ...r, media: mediaByEntry[r.id] ?? [] }));
+}
+
+export async function getDigestMediaForEntries(
+  db: Database,
+  digestIds: string[]
+): Promise<Record<string, typeof media.$inferSelect[]>> {
+  if (digestIds.length === 0) return {};
+
+  // Get all source entry IDs for all digests
+  const joinRows = await db
+    .select()
+    .from(digestEntries)
+    .where(
+      sql`${digestEntries.digestId} IN (${sql.join(
+        digestIds.map((id) => sql`${id}`),
+        sql`, `
+      )})`
+    );
+
+  if (joinRows.length === 0) return {};
+
+  const sourceIds = joinRows.map((r) => r.sourceEntryId);
+  const mediaRows = await db
+    .select()
+    .from(media)
+    .where(
+      sql`${media.entryId} IN (${sql.join(
+        sourceIds.map((id) => sql`${id}`),
+        sql`, `
+      )})`
+    );
+
+  // Map: digestId -> media[]
+  const sourceToDigest: Record<string, string> = {};
+  for (const row of joinRows) {
+    sourceToDigest[row.sourceEntryId] = row.digestId;
+  }
+
+  const result: Record<string, typeof media.$inferSelect[]> = {};
+  for (const row of mediaRows) {
+    const digestId = sourceToDigest[row.entryId];
+    if (digestId) {
+      if (!result[digestId]) result[digestId] = [];
+      result[digestId].push(row);
+    }
+  }
+  return result;
 }
 
 // ── Processing Log ──────────────────────────────────────────────────
