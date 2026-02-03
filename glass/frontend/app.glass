@@ -1,0 +1,39 @@
+=== Glass Unit ===
+id: frontend.app
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: React SPA frontend for journal management. Provides authenticated access to entries, settings, and phone verification via a clean, responsive interface built with Vite, Tailwind CSS, React Router, and React Query.
+source:
+  kind: prd
+  reference: "PRD Section 9 — Frontend"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Backend API running at /api/* and /auth/*"
+  - "Google OAuth 2.0 configured for authentication"
+  - "Cookie-based JWT session from backend auth flow"
+guarantees:
+  on_success:
+    - "Login page redirects to Google OAuth flow"
+    - "Dashboard displays paginated journal entries with date filtering"
+    - "Entry detail view shows polished and raw content, media attachments"
+    - "New entry form creates entries with optional AI polish"
+    - "Settings page manages display name, timezone, voice style, and phone verification"
+    - "Protected routes redirect unauthenticated users to login"
+  on_failure:
+    - "API errors displayed as toast notifications"
+    - "Authentication failure redirects to login"
+invariants:
+  - "All API calls include credentials (cookies) for session auth"
+  - "React Query handles caching and automatic refetching"
+  - "Vite dev server proxies API requests to backend (localhost:8787)"
+fails:
+  AuthenticationRequired: "Redirect to /login"
+  APIError: "Display toast notification with error message"
+advisories: []
