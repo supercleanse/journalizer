@@ -105,7 +105,8 @@ auth.get("/callback", async (c) => {
 
   const db = createDb(c.env.DB);
 
-  // Create or update user
+  // Create or update user — role is re-evaluated on every login so that
+  // adding/removing emails from ADMIN_EMAILS takes effect immediately.
   const role = determineRole(payload.email, c.env.ADMIN_EMAILS);
   let user = await getUserByGoogleId(db, payload.sub);
 

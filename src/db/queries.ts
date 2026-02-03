@@ -53,7 +53,7 @@ export async function createUser(
     email: string;
     displayName?: string;
     avatarUrl?: string;
-    role?: string;
+    role?: "user" | "admin";
   }
 ) {
   await db.insert(users).values(data);
@@ -70,7 +70,7 @@ export async function updateUser(
     voiceStyle: string;
     voiceNotes: string;
     timezone: string;
-    role: string;
+    role: "user" | "admin";
   }>
 ) {
   await db
