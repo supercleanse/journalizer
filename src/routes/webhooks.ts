@@ -18,8 +18,10 @@ import {
   getTelegramFileUrl,
 } from "../services/telegram";
 import { downloadAndStore } from "../services/media";
+import type { MediaRecord } from "../services/media";
 import { polishEntryWithLogging } from "../services/ai";
 import type { VoiceStyle } from "../services/ai";
+import { transcribeFromR2 } from "../services/transcription";
 
 const webhooks = new Hono<{ Bindings: Env }>();
 
@@ -27,7 +29,7 @@ const webhooks = new Hono<{ Bindings: Env }>();
  * Process a Telegram journal message (text, media) in the background.
  *
  * Creates the entry first so that processing_log FK references are valid,
- * then processes media and AI polish, updating the entry afterward.
+ * then downloads media, transcribes audio/video, and AI polishes text.
  */
 async function processJournalMessage(
   env: Env,
@@ -42,7 +44,7 @@ async function processJournalMessage(
   let entryType = "text";
   let rawContent = text;
 
-  // Determine entry type and raw content from media
+  // Determine entry type from media (no placeholder text)
   const mediaFile =
     message.voice ??
     message.audio ??
@@ -54,12 +56,6 @@ async function processJournalMessage(
     else if (message.audio) entryType = "audio";
     else if (message.video) entryType = "video";
     else if (message.photo) entryType = "photo";
-
-    if (!rawContent) {
-      if (entryType === "audio") rawContent = "[Voice message]";
-      else if (entryType === "video") rawContent = "[Video message]";
-      else if (entryType === "photo") rawContent = "[Photo]";
-    }
   }
 
   // Create the entry first so processing_log FK references are valid
@@ -96,7 +92,9 @@ async function processJournalMessage(
     }),
   });
 
-  // Process media attachments
+  // Download and store media attachments
+  let mediaRecord: MediaRecord | null = null;
+
   if (mediaFile) {
     const fileUrl = await getTelegramFileUrl(env, mediaFile.file_id);
 
@@ -107,11 +105,17 @@ async function processJournalMessage(
       else if (message.video) mimeType = message.video.mime_type ?? "video/mp4";
       else if (message.photo) mimeType = "image/jpeg";
 
+      let durationSeconds: number | undefined;
+      if (message.voice) durationSeconds = message.voice.duration;
+      else if (message.audio) durationSeconds = message.audio.duration;
+      else if (message.video) durationSeconds = message.video.duration;
+
       try {
-        await downloadAndStore(env, db, fileUrl, {
+        mediaRecord = await downloadAndStore(env, db, fileUrl, {
           userId: user.id,
           entryId,
           mimeType,
+          durationSeconds,
         });
       } catch (err) {
         await logProcessing(db, {
@@ -127,7 +131,29 @@ async function processJournalMessage(
     }
   }
 
-  // Polish with AI and update the entry
+  // Transcribe audio/video via Workers AI Whisper
+  if (mediaRecord && (entryType === "audio" || entryType === "video")) {
+    try {
+      const transcription = await transcribeFromR2(
+        env,
+        db,
+        mediaRecord.r2Key,
+        entryId
+      );
+
+      if (!rawContent) {
+        rawContent = transcription.transcript;
+      } else {
+        rawContent = `${rawContent}\n\n[Transcription]\n${transcription.transcript}`;
+      }
+
+      await updateEntry(db, entryId, user.id, { rawContent });
+    } catch {
+      // Transcription failed — error already logged by transcribeFromR2
+    }
+  }
+
+  // Polish with AI (only when there is actual text)
   if (rawContent) {
     try {
       const result = await polishEntryWithLogging(

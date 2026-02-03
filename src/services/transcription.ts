@@ -1,7 +1,10 @@
 import type { Env } from "../types/env";
 import type { Database } from "../db/index";
 import { logProcessing } from "../db/queries";
-import { ApiError, R2ObjectNotFound, EmptyTranscript } from "../lib/errors";
+
+// Glass contract: failure modes
+export { R2ObjectNotFound, EmptyTranscript } from "../lib/errors";
+import { R2ObjectNotFound, EmptyTranscript } from "../lib/errors";
 
 export interface TranscriptionResult {
   transcript: string;
@@ -10,88 +13,31 @@ export interface TranscriptionResult {
   words: number;
 }
 
-interface DeepgramResponse {
-  results?: {
-    channels?: Array<{
-      alternatives?: Array<{
-        transcript?: string;
-        confidence?: number;
-        words?: Array<{
-          word: string;
-          start: number;
-          end: number;
-          confidence: number;
-        }>;
-      }>;
-    }>;
-  };
-  metadata?: {
-    duration?: number;
-  };
-}
-
 /**
- * Transcribe audio/video using Deepgram Nova-3 pre-recorded API.
+ * Transcribe audio using Cloudflare Workers AI (Whisper model).
  */
-export async function transcribeMedia(
-  apiKey: string,
-  audioSource: ArrayBuffer | ReadableStream | string,
-  options: {
-    mimeType?: string;
-  } = {}
+export async function transcribeAudio(
+  ai: Ai,
+  audioData: ArrayBuffer
 ): Promise<TranscriptionResult> {
-  const isUrl = typeof audioSource === "string";
+  const audioArray = [...new Uint8Array(audioData)];
 
-  const requestBody = isUrl
-    ? JSON.stringify({ url: audioSource })
-    : audioSource;
-
-  const headers: Record<string, string> = {
-    Authorization: `Token ${apiKey}`,
-  };
-
-  if (isUrl) {
-    headers["Content-Type"] = "application/json";
-  } else if (options.mimeType) {
-    headers["Content-Type"] = options.mimeType;
-  }
-
-  const params = new URLSearchParams({
-    model: "nova-3",
-    punctuate: "true",
-    paragraphs: "true",
-    diarize: "true",
-    smart_format: "true",
+  const result = await ai.run("@cf/openai/whisper", {
+    audio: audioArray,
   });
 
-  const response = await fetch(
-    `https://api.deepgram.com/v1/listen?${params}`,
-    {
-      method: "POST",
-      headers,
-      body: requestBody,
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new ApiError(`Deepgram API error ${response.status}: ${errorText}`);
+  if (!result.text || result.text.trim().length === 0) {
+    throw new EmptyTranscript("No transcript returned from Workers AI Whisper");
   }
 
-  const data = (await response.json()) as DeepgramResponse;
-
-  const channel = data.results?.channels?.[0];
-  const alternative = channel?.alternatives?.[0];
-
-  if (!alternative?.transcript) {
-    throw new EmptyTranscript("No transcript returned from Deepgram");
-  }
+  const lastWord = result.words?.[result.words.length - 1];
+  const estimatedDuration = lastWord?.end ?? 0;
 
   return {
-    transcript: alternative.transcript,
-    confidence: alternative.confidence ?? 0,
-    durationSeconds: data.metadata?.duration ?? 0,
-    words: alternative.words?.length ?? 0,
+    transcript: result.text.trim(),
+    confidence: 1.0,
+    durationSeconds: estimatedDuration,
+    words: result.word_count ?? result.words?.length ?? 0,
   };
 }
 
@@ -102,9 +48,7 @@ export async function transcribeFromR2(
   env: Env,
   db: Database,
   r2Key: string,
-  entryId: string,
-  mimeType: string,
-  apiKey: string
+  entryId: string
 ): Promise<TranscriptionResult> {
   const logId = crypto.randomUUID();
 
@@ -115,10 +59,7 @@ export async function transcribeFromR2(
     }
 
     const audioBuffer = await object.arrayBuffer();
-
-    const result = await transcribeMedia(apiKey, audioBuffer, {
-      mimeType,
-    });
+    const result = await transcribeAudio(env.AI, audioBuffer);
 
     await logProcessing(db, {
       id: logId,

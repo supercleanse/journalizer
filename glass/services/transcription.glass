@@ -1,13 +1,13 @@
 === Glass Unit ===
 id: services.transcription
-version: 0.1.0
+version: 0.2.0
 language: typescript
 
 === Intent ===
-purpose: Convert audio and video files to text using Deepgram Nova-3 speech-to-text API. Supports both direct audio upload and R2-stored media. Transcripts are used as raw content for journal entries, then passed to AI polish.
+purpose: Convert audio and video files to text using Cloudflare Workers AI Whisper model. Transcripts are used as raw content for journal entries, then passed to AI polish.
 source:
   kind: prd
-  reference: "PRD Section 8.2 — Audio/Video Transcription (Deepgram)"
+  reference: "PRD Section 8.2 — Audio/Video Transcription"
 parent: null
 stakeholder: user
 subIntents: []
@@ -15,25 +15,23 @@ approvalStatus: approved
 
 === Contract ===
 requires:
-  - "DEEPGRAM_API_KEY is configured as a Worker secret"
-  - "Audio source is valid audio/video data or a URL"
+  - "AI binding (Workers AI) is available in the Worker environment"
+  - "Audio source is valid audio data as ArrayBuffer"
 guarantees:
   on_success:
-    - "Returns transcript text with punctuation and paragraph breaks"
-    - "Speaker diarization is enabled for multi-speaker content"
-    - "Confidence score, duration, and word count are tracked"
+    - "transcribeAudio returns transcript text from Whisper model"
+    - "Word count and estimated duration are tracked"
+    - "transcribeFromR2 fetches audio from R2 and transcribes it"
     - "Processing is logged to D1 processing_log table"
   on_failure:
-    - "API errors include status code and Deepgram error message"
     - "R2 fetch failures are logged with the R2 key"
     - "All failures are logged to processing_log"
 invariants:
   - "Every transcription attempt is logged (success or failure)"
   - "R2 objects are read but never modified by this service"
 fails:
-  ApiError: "Log failure with Deepgram status code, propagate error"
   R2ObjectNotFound: "Log failure, throw with R2 key context"
-  EmptyTranscript: "Throw error (no transcript returned)"
+  EmptyTranscript: "Throw error when no transcript returned from Whisper"
 advisories:
-  - "Deepgram Nova-3 costs ~$0.0043/min — monitor for cost spikes"
-  - "Video audio extraction not yet implemented — send full video file to Deepgram"
+  - "Workers AI Whisper is included in Workers Paid plan — no per-request cost"
+  - "Whisper does not return confidence scores — set to 1.0 for interface compatibility"

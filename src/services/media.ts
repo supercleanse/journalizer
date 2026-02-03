@@ -157,6 +157,7 @@ export async function downloadAndStore(
     userId: string;
     entryId: string;
     mimeType: string;
+    durationSeconds?: number;
   }
 ): Promise<MediaRecord> {
   const response = await fetch(sourceUrl);
@@ -166,12 +167,13 @@ export async function downloadAndStore(
 
   const fileSize = parseInt(response.headers.get("content-length") ?? "0", 10);
   const mimeType =
-    response.headers.get("content-type") ?? options.mimeType;
+    options.mimeType ?? response.headers.get("content-type") ?? "application/octet-stream";
 
   return uploadMedia(env, db, response.body!, {
     userId: options.userId,
     entryId: options.entryId,
     mimeType,
     fileSize,
+    durationSeconds: options.durationSeconds,
   });
 }

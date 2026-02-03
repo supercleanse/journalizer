@@ -20,6 +20,10 @@ migrations_dir = "src/db/migrations"
 binding = "MEDIA"
 bucket_name = "journalizer-media"
 
+# Workers AI (transcription)
+[ai]
+binding = "AI"
+
 # KV Sessions & Cache
 [[kv_namespaces]]
 binding = "KV"
