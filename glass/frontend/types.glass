@@ -20,7 +20,7 @@ guarantees:
   on_success:
     - "User interface: displayName, email, timezone, telegramLinked, voiceStyle, voiceNotes"
     - "Entry interface: id, userId, rawContent, polishedContent, entryType, source, entryDate, createdAt, media array"
-    - "MediaAttachment interface: id, entryId, mediaType, mimeType, r2Key, fileSize, durationSeconds, transcription"
+    - "MediaAttachment interface: id, entryId, mediaType, mimeType, r2Key, fileSize, durationSeconds, transcription, thumbnailR2Key, createdAt"
     - "Reminder interface: id, reminderType (daily/weekly/monthly/smart), timeOfDay, dayOfWeek, dayOfMonth, smartThreshold, isActive (boolean)"
     - "PaginatedResponse<T> generic wrapper with entries, total, offset, limit"
     - "AuthUser interface: id, email, displayName, avatarUrl, timezone, telegramLinked, voiceStyle, createdAt"

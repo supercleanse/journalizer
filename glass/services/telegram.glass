@@ -33,4 +33,3 @@ invariants:
   - "Functions return boolean or nullable — callers handle failures"
 fails:
   TelegramAPIError: "API request failed or returned non-ok status"
-  InvalidSignature: "Webhook secret validation failed"

@@ -28,7 +28,6 @@ guarantees:
     - "Empty entryDates set renders calendar with no highlights"
 invariants:
   - "Calendar always shows complete weeks (padding from adjacent months)"
-  - "Today's date visually distinguished"
   - "Selection is toggle-based (click selected date to clear)"
 fails:
   RenderError: "Invalid date input handled gracefully"

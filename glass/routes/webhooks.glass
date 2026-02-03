@@ -38,5 +38,7 @@ invariants:
   - "Linking codes deleted from KV after successful use"
   - "Linking attempts rate-limited to 10 per hour per chat ID"
   - "Entry date set to current UTC date (no time component)"
+advisories:
+  - "POST /api/webhooks/lulu returns 501 Not Implemented (Phase 2 placeholder)"
 fails:
   InvalidSignature: "Return 403 — webhook secret mismatch"

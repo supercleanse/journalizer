@@ -22,7 +22,6 @@ guarantees:
     - "Sticky header with Journalizer branding"
     - "Navigation links: Journal, New Entry, Settings"
     - "Active link visually highlighted"
-    - "User display name shown"
     - "Sign out button calls logout and redirects to login"
   on_failure:
     - "Logout failure handled by auth context"

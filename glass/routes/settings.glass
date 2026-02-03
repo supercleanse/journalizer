@@ -37,3 +37,5 @@ invariants:
   - "Code collision checked before KV write"
 fails:
   ValidationError: "Return 400 with validation details"
+  UserNotFound: "Return 404 when authenticated user not found in database"
+  RateLimited: "Return 429 when linking code generation exceeds 5/hour"

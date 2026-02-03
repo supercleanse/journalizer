@@ -49,11 +49,11 @@ requires:
 - "precondition that must be true before execution"
 guarantees:
   on_success:
-  - "postcondition guaranteed after successful execution"
-on_failure:
-  - "postcondition guaranteed when execution fails"
+    - "postcondition guaranteed after successful execution"
+  on_failure:
+    - "postcondition guaranteed when execution fails"
 invariants:
-- "property that must hold throughout execution"
+  - "property that must hold throughout execution"
 fails:
   ErrorType: "handling strategy"
 
@@ -65,7 +65,7 @@ glass compile   # Full pipeline: verify + emit TypeScript code
 glass status    # Show verification dashboard
 ```
 
-SEE ./GLASS.MD FOR THE COMPLETE METHODOLOGY, CONTRACT RULES, AND PROJECT CONVENTIONS.
+See [GLASS.md](./GLASS.md) for the complete methodology, contract rules, and project conventions.
 
 ## IMPORTANT: Feature Development Process
 

@@ -20,7 +20,7 @@ requires:
   - "React Query configured for data fetching"
 guarantees:
   on_success:
-    - "Displays entry date, type badge, and source badge"
+    - "Displays entry date, type badge, and source badge (SMS)"
     - "Shows polished content as primary view"
     - "Original content available in collapsible details element"
     - "Media attachments rendered by type (images, audio players, video players)"
