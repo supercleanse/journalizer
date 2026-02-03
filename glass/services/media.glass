@@ -1,0 +1,42 @@
+=== Glass Unit ===
+id: services.media
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Secure binary file storage and retrieval via Cloudflare R2. Handles upload, download, and deletion of photos, audio, and video attached to journal entries. D1 stores metadata only — all binary files live in R2.
+source:
+  kind: prd
+  reference: "PRD Section 5.2 — Storage Separation and Section 8.1 — MMS Media"
+parent: null
+stakeholder: engineering
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "R2 bucket binding (MEDIA) is available in the Worker environment"
+  - "D1 database is available for media metadata storage"
+  - "Valid userId and entryId are provided for all operations"
+guarantees:
+  on_success:
+    - "Files are stored in R2 with key format: {userId}/{entryId}/{uuid}.{ext}"
+    - "Media metadata is recorded in D1 media table atomically with R2 upload"
+    - "User isolation: users can only access media they own"
+    - "External media (Twilio MMS URLs) can be downloaded and stored"
+  on_failure:
+    - "R2 upload failures clean up any partial state"
+    - "D1 insert failures clean up the R2 object"
+    - "Unauthorized access returns null (not an error)"
+invariants:
+  - "Every R2 object has a corresponding D1 media record"
+  - "R2 keys are globally unique (UUID-based)"
+  - "Media type is derived from MIME type, not file extension"
+fails:
+  UploadFailed: "Clean up partial R2 upload, throw error"
+  MetadataInsertFailed: "Delete R2 object, throw error"
+  MediaNotFound: "Return null"
+  DownloadFailed: "Throw error with source URL context"
+advisories:
+  - "Thumbnail generation not yet implemented — placeholder for future subtask"
+  - "Consider R2 lifecycle rules for automatic cleanup of orphaned objects"
