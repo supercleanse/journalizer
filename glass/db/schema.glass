@@ -1,0 +1,37 @@
+=== Glass Unit ===
+id: db.schema
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Define the persistent data model for Journalizer. All user data, journal entries, media references, reminders, and processing logs are stored in Cloudflare D1 (SQLite). Binary media files live in R2 — D1 stores only text and metadata.
+source:
+  kind: prd
+  reference: "PRD Section 6 — Database Schema"
+parent: null
+stakeholder: engineering
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "D1 database binding is available in the Worker environment"
+  - "All primary keys are UUIDs generated before insertion"
+guarantees:
+  on_success:
+    - "Foreign key integrity is enforced (CASCADE deletes propagate correctly)"
+    - "All tables have proper indexes for query performance"
+    - "Drizzle ORM types match the underlying SQL schema exactly"
+  on_failure:
+    - "Constraint violations return descriptive errors (unique, FK, NOT NULL)"
+invariants:
+  - "Every entry belongs to exactly one user (entries.user_id is NOT NULL)"
+  - "Every media record references a valid entry and user"
+  - "D1 stores only text and metadata — no binary blobs"
+fails:
+  UniqueConstraintViolation: "Return error with conflicting field name"
+  ForeignKeyViolation: "Return error identifying the missing parent record"
+  NotNullViolation: "Return error identifying the required field"
+advisories:
+  - "D1 has a 10 GB cap — monitor usage as user base grows"
+  - "Consider Postgres migration path via Drizzle dialect swap if D1 limits are hit"

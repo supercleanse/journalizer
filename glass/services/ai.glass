@@ -1,0 +1,39 @@
+=== Glass Unit ===
+id: services.ai
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Polish raw journal entries using Anthropic Claude API. Takes raw text (from SMS, voice transcription, or web input) and refines it for readability while preserving the user's authentic voice, words, and personality.
+source:
+  kind: prd
+  reference: "PRD Section 8.2 — AI Content Processing"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "ANTHROPIC_API_KEY is configured as a Worker secret"
+  - "Raw content is non-empty text"
+guarantees:
+  on_success:
+    - "Polished text preserves the author's words, meaning, and tone"
+    - "Voice style preference (natural/conversational/reflective/polished) is respected"
+    - "Custom voice notes are incorporated into the editing instructions"
+    - "Token usage is tracked and logged to processing_log table"
+    - "Returns only the polished text — no AI commentary or preamble"
+  on_failure:
+    - "API errors are logged to processing_log with 'failed' status"
+    - "Error is propagated to caller for handling"
+invariants:
+  - "AI never adds content the author didn't write"
+  - "AI never changes the meaning of what was written"
+  - "Processing log records every API call (success or failure)"
+fails:
+  ApiError: "Log failure, propagate error"
+  RateLimited: "Log failure, propagate for caller to retry"
+  InvalidResponse: "Fall back to raw content"
+advisories:
+  - "Using claude-haiku-4 for speed and cost — consider A/B testing with Sonnet for quality"

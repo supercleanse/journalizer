@@ -1,0 +1,36 @@
+=== Glass Unit ===
+id: routes.reminders
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: CRUD API for journal reminder configuration. Supports daily, weekly, monthly, and smart nudge reminder types with type-specific validation. All operations are scoped to the authenticated user.
+source:
+  kind: prd
+  reference: "PRD Section 8.4 — Reminders"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated (JWT validated by auth middleware)"
+  - "Request body matches Zod validation schema for POST/PUT"
+guarantees:
+  on_success:
+    - "GET /api/reminders returns all reminders for the user"
+    - "POST /api/reminders creates reminder with type-specific validation"
+    - "weekly type requires dayOfWeek (0-6); monthly type requires dayOfMonth (1-28)"
+    - "PUT /api/reminders/:id updates only the fields provided"
+    - "DELETE /api/reminders/:id removes the reminder"
+    - "Multiple reminders per user are supported"
+  on_failure:
+    - "Invalid request body returns 400 with Zod validation details"
+    - "Non-existent or non-owned reminder returns 404"
+invariants:
+  - "All queries filter by userId from JWT — no cross-user access"
+  - "Conditional validation: weekly requires dayOfWeek, monthly requires dayOfMonth"
+fails:
+  ValidationError: "Return 400 with field-level error details"
+  ReminderNotFound: "Return 404"

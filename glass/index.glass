@@ -1,0 +1,36 @@
+=== Glass Unit ===
+id: index
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: HTTP request routing and middleware orchestration. This is the Cloudflare Worker entry point that receives all requests and dispatches them to the appropriate route handler after applying middleware.
+source:
+  kind: prd
+  reference: "PRD Section 10 — API Endpoints"
+parent: null
+stakeholder: engineering
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "All Cloudflare bindings (D1, R2, KV) are available in the Worker environment"
+  - "Environment secrets (JWT_SECRET, API keys) are configured"
+guarantees:
+  on_success:
+    - "CORS headers are set on all responses with credentials support"
+    - "/auth/* routes are publicly accessible (no JWT required)"
+    - "/api/webhooks/* routes use their own auth (Twilio signature, etc.)"
+    - "/api/* routes require valid JWT session cookie"
+    - "All errors return structured JSON: { error: { message, code, status } }"
+  on_failure:
+    - "Unhandled errors are caught by global error handler"
+    - "Error responses never expose internal details or stack traces"
+invariants:
+  - "Auth middleware runs before any /api/* handler (except webhooks)"
+  - "CORS middleware runs on every request"
+fails:
+  RouteNotFound: "Return 404 with structured error"
+  AuthenticationRequired: "Return 401 with structured error"
+  InternalError: "Return 500 with generic message, log details server-side"

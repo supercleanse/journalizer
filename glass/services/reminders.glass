@@ -1,0 +1,40 @@
+=== Glass Unit ===
+id: services.reminders
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Cron-triggered worker that processes scheduled reminders every 15 minutes. Evaluates all active reminders against user timezone, fires daily/weekly/monthly/smart nudge SMS via Twilio with duplicate prevention.
+source:
+  kind: prd
+  reference: "PRD Section 8.4 — Reminder Scheduling"
+parent: index
+stakeholder: system
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Cron trigger configured in wrangler.toml (*/15 * * * *)"
+  - "Active reminders exist in D1 with valid user references"
+  - "Users have verified phone numbers and timezone settings"
+  - "Twilio credentials configured in environment"
+guarantees:
+  on_success:
+    - "Daily reminders fire at configured timeOfDay in user's timezone"
+    - "Weekly reminders fire on configured dayOfWeek at timeOfDay"
+    - "Monthly reminders fire on configured dayOfMonth at timeOfDay"
+    - "Smart nudge fires when days since last entry >= smartThreshold"
+    - "Messages rotate deterministically per reminder per day"
+    - "lastSentAt updated after successful SMS delivery"
+  on_failure:
+    - "Individual reminder failures do not block other reminders"
+    - "All failures logged to processing_log with error details"
+invariants:
+  - "No duplicate sends within the same day (lastSentAt check)"
+  - "Timezone conversion uses Intl.DateTimeFormat with IANA identifiers"
+  - "15-minute cron window tolerance for time matching"
+fails:
+  SMSDeliveryFailed: "Log error, continue with remaining reminders"
+  UserNotFound: "Skip reminder silently"
+  TimezoneInvalid: "Fall back to UTC"

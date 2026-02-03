@@ -1,0 +1,38 @@
+=== Glass Unit ===
+id: frontend.dashboard
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Primary journal viewing interface with calendar sidebar, search, infinite scroll pagination, view toggles, streak tracking, and entry date highlighting. Responsive layout with desktop sidebar and mobile stats footer.
+source:
+  kind: prd
+  reference: "PRD Section 8.3 — Dashboard"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated (redirects to /login otherwise)"
+  - "GET /api/entries endpoint supports pagination, search, and date filtering"
+guarantees:
+  on_success:
+    - "Entries displayed in reverse-chronological order grouped by date"
+    - "Calendar sidebar highlights dates with entries via dot indicators"
+    - "Clicking a calendar date filters entries to that date"
+    - "Search input debounces at 300ms and queries full-text search API"
+    - "Infinite scroll loads next page via Intersection Observer"
+    - "Streak counter calculates consecutive days with entries"
+    - "Monthly entry count shown in stats panel"
+    - "View Original toggle on EntryCard shows raw vs polished content"
+  on_failure:
+    - "Empty state shown when no entries or no search results"
+    - "Loading indicators during data fetching"
+invariants:
+  - "Calendar sidebar visible on desktop (lg+), stats footer on mobile"
+  - "Debounced search prevents excessive API calls"
+  - "Infinite scroll sentinel cleans up observer on unmount"
+fails:
+  APIError: "Handled by React Query error state"

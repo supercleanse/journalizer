@@ -1,0 +1,37 @@
+=== Glass Unit ===
+id: auth.oauth
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Authenticate users via Google OAuth 2.0. This is the only login method — users sign in with their Google account, and we create/update their local user record automatically.
+source:
+  kind: prd
+  reference: "PRD Section 7 — Authentication"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are configured as Worker secrets"
+  - "KV binding is available for CSRF state storage"
+guarantees:
+  on_success:
+    - "CSRF protection via random state parameter stored in KV with 5-min TTL"
+    - "Authorization code is exchanged for tokens server-side (never exposed to client)"
+    - "User record is created or updated in D1 with Google profile info"
+    - "Session JWT is set as HttpOnly Secure SameSite=Lax cookie"
+    - "Google refresh token is stored in KV with 7-day TTL"
+  on_failure:
+    - "Invalid state returns 403 (CSRF attack blocked)"
+    - "Failed token exchange returns 502 with generic error"
+    - "No credentials or tokens are exposed in error responses"
+invariants:
+  - "State parameter is single-use (deleted from KV after validation)"
+  - "Client secret never appears in URLs, logs, or responses"
+fails:
+  InvalidState: "Return 403 — potential CSRF attack"
+  TokenExchangeFailed: "Return 502 — Google API error"
+  UserCreationFailed: "Return 500 — database error"

@@ -1,0 +1,36 @@
+=== Glass Unit ===
+id: auth.session
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Manage stateless sessions via JWT tokens stored in HttpOnly cookies. Provides middleware that extracts and validates sessions for protected routes.
+source:
+  kind: prd
+  reference: "PRD Section 7.2 — Implementation Details"
+parent: auth.oauth
+stakeholder: security
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "JWT_SECRET is configured as a Worker secret"
+  - "Session cookie is present on protected requests"
+guarantees:
+  on_success:
+    - "JWTs are signed with HS256 and expire after 1 hour"
+    - "Cookies use HttpOnly (no JS access), Secure (HTTPS only), SameSite=Lax"
+    - "Auth middleware injects userId and email into request context"
+  on_failure:
+    - "Missing or invalid JWT returns 401 Unauthorized"
+    - "Expired JWT returns 401 Unauthorized"
+    - "Tampered JWT returns 401 Unauthorized"
+invariants:
+  - "JWT payload contains only userId and email — no sensitive data"
+  - "Session cookies are cleared on logout"
+fails:
+  InvalidToken: "Return 401 with generic 'Invalid or expired session' message"
+  MissingToken: "Return 401 with 'Session required' message"
+advisories:
+  - "Consider adding refresh token rotation for extended sessions"

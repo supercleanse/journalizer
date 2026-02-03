@@ -1,0 +1,36 @@
+=== Glass Unit ===
+id: services.sms
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: SMS service using Twilio REST API for sending verification codes, entry confirmations, and journal reminders. Includes webhook signature validation and TwiML response generation.
+source:
+  kind: prd
+  reference: "PRD Section 8.3 — Twilio Integration"
+parent: index
+stakeholder: system
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER in environment"
+  - "Phone numbers in E.164 format"
+guarantees:
+  on_success:
+    - "sendSMS delivers message via Twilio REST API with Basic Auth"
+    - "validateTwilioSignature verifies HMAC-SHA1 webhook signatures"
+    - "twimlResponse generates valid TwiML XML with XML-escaped content"
+    - "generateVerificationCode produces cryptographically random 6-digit codes"
+    - "Message templates provide consistent formatting for all SMS types"
+  on_failure:
+    - "sendSMS returns false on Twilio API failure"
+    - "Invalid signatures return false without processing"
+invariants:
+  - "Uses Twilio REST API directly (no SDK) for Workers compatibility"
+  - "All TwiML output is XML-escaped to prevent injection"
+  - "Verification codes are 6 digits, 100000-999999 range"
+fails:
+  TwilioAPIError: "Return false from sendSMS"
+  InvalidSignature: "Return false from validateTwilioSignature"
