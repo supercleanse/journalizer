@@ -25,13 +25,14 @@ const createReminderSchema = z
   })
   .refine(
     (data) => {
+      if (data.reminderType !== "smart" && !data.timeOfDay) return false;
       if (data.reminderType === "weekly" && data.dayOfWeek === undefined)
         return false;
       if (data.reminderType === "monthly" && data.dayOfMonth === undefined)
         return false;
       return true;
     },
-    { message: "weekly requires dayOfWeek; monthly requires dayOfMonth" }
+    { message: "Non-smart types require timeOfDay; weekly requires dayOfWeek; monthly requires dayOfMonth" }
   );
 
 // GET /api/reminders — list user reminders
@@ -45,7 +46,12 @@ remindersRoutes.get("/", async (c) => {
 // POST /api/reminders — create a reminder
 remindersRoutes.post("/", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new ValidationError("Invalid JSON body");
+  }
 
   const parsed = createReminderSchema.safeParse(body);
   if (!parsed.success) {
@@ -78,7 +84,12 @@ const updateReminderSchema = z.object({
 remindersRoutes.put("/:id", async (c) => {
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new ValidationError("Invalid JSON body");
+  }
 
   const parsed = updateReminderSchema.safeParse(body);
   if (!parsed.success) {

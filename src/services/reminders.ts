@@ -2,7 +2,7 @@ import type { Env } from "../types/env";
 import { createDb } from "../db/index";
 import {
   getAllActiveReminders,
-  getUserById,
+  getUsersByIds,
   getLastEntryDate,
   updateReminderLastSent,
   logProcessing,
@@ -131,13 +131,25 @@ export async function handleCron(env: Env): Promise<void> {
 
   const activeReminders = await getAllActiveReminders(db);
 
+  // Batch-fetch all users to avoid N+1 queries
+  const userIds = [...new Set(activeReminders.map((r) => r.userId))];
+  const usersArr = await getUsersByIds(db, userIds);
+  const usersMap = new Map(usersArr.map((u) => [u.id, u]));
+
   for (const reminder of activeReminders) {
     try {
-      const user = await getUserById(db, reminder.userId);
+      const user = usersMap.get(reminder.userId);
       if (!user || !user.phoneNumber || user.phoneVerified !== 1) continue;
 
-      const timezone = user.timezone || "UTC";
-      const local = getUserLocalTime(now, timezone);
+      let timezone = user.timezone || "UTC";
+      let local;
+      try {
+        local = getUserLocalTime(now, timezone);
+      } catch {
+        // Invalid timezone — fall back to UTC
+        timezone = "UTC";
+        local = getUserLocalTime(now, timezone);
+      }
 
       // Skip if already sent today
       if (alreadySentToday(reminder.lastSentAt, local.dateString, timezone)) {

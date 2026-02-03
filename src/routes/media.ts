@@ -20,6 +20,19 @@ mediaRoutes.post("/upload", async (c) => {
     return c.json({ error: "entryId is required" }, 400);
   }
 
+  // Validate file size (max 25MB)
+  const MAX_FILE_SIZE = 25 * 1024 * 1024;
+  if (file.size > MAX_FILE_SIZE) {
+    return c.json({ error: "File too large. Maximum size is 25MB." }, 400);
+  }
+
+  // Validate MIME type
+  const ALLOWED_TYPES = ["image/", "audio/", "video/"];
+  const mimeType = file.type || "application/octet-stream";
+  if (!ALLOWED_TYPES.some((prefix) => mimeType.startsWith(prefix))) {
+    return c.json({ error: "Only image, audio, and video files are allowed." }, 400);
+  }
+
   const db = createDb(c.env.DB);
   const buffer = await file.arrayBuffer();
 

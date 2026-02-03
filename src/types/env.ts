@@ -3,6 +3,7 @@ export interface Env {
   MEDIA: R2Bucket;
   KV: KVNamespace;
   ENVIRONMENT: string;
+  ALLOWED_ORIGINS: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   TWILIO_ACCOUNT_SID: string;

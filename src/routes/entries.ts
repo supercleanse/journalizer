@@ -9,6 +9,7 @@ import {
   updateEntry,
   deleteEntry,
   getUserById,
+  getMediaByEntry,
 } from "../db/queries";
 import { polishEntryWithLogging } from "../services/ai";
 import type { VoiceStyle } from "../services/ai";
@@ -21,8 +22,8 @@ entries.get("/", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
 
-  const limit = Math.min(parseInt(c.req.query("limit") ?? "20", 10), 100);
-  const offset = parseInt(c.req.query("offset") ?? "0", 10);
+  const limit = Math.min(parseInt(c.req.query("limit") ?? "20", 10) || 20, 100);
+  const offset = parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
   const result = await listEntries(db, userId, {
     limit,
@@ -70,7 +71,12 @@ const createEntrySchema = z.object({
 // POST /api/entries — create new entry
 entries.post("/", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new ValidationError("Invalid JSON body");
+  }
 
   const parsed = createEntrySchema.safeParse(body);
   if (!parsed.success) {
@@ -132,7 +138,12 @@ const updateEntrySchema = z.object({
 entries.put("/:id", async (c) => {
   const userId = c.get("userId");
   const entryId = c.req.param("id");
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new ValidationError("Invalid JSON body");
+  }
 
   const parsed = updateEntrySchema.safeParse(body);
   if (!parsed.success) {
@@ -149,11 +160,20 @@ entries.put("/:id", async (c) => {
   return c.json({ entry });
 });
 
-// DELETE /api/entries/:id — delete entry
+// DELETE /api/entries/:id — delete entry (cleans up R2 media first)
 entries.delete("/:id", async (c) => {
   const userId = c.get("userId");
   const entryId = c.req.param("id");
   const db = createDb(c.env.DB);
+
+  // Clean up R2 objects before D1 cascade-delete removes the media rows
+  const mediaRows = await getMediaByEntry(db, entryId);
+  for (const m of mediaRows) {
+    await c.env.MEDIA.delete(m.r2Key).catch(() => {});
+    if (m.thumbnailR2Key) {
+      await c.env.MEDIA.delete(m.thumbnailR2Key).catch(() => {});
+    }
+  }
 
   const deleted = await deleteEntry(db, entryId, userId);
   if (!deleted) {

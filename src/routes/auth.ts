@@ -83,12 +83,31 @@ auth.get("/callback", async (c) => {
     throw new TokenExchangeFailed("Invalid ID token format");
   }
 
-  const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))) as {
+  // Base64url decode with proper padding and UTF-8 handling
+  let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4 !== 0) b64 += "=";
+  const jsonStr = new TextDecoder().decode(
+    Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))
+  );
+
+  const payload = JSON.parse(jsonStr) as {
     sub: string;
     email: string;
     name?: string;
     picture?: string;
+    iss?: string;
+    aud?: string;
+    exp?: number;
   };
+
+  // Validate basic ID token claims
+  if (
+    (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") ||
+    payload.aud !== c.env.GOOGLE_CLIENT_ID ||
+    (payload.exp && payload.exp < Math.floor(Date.now() / 1000))
+  ) {
+    throw new TokenExchangeFailed("ID token validation failed");
+  }
 
   const db = createDb(c.env.DB);
 
@@ -148,7 +167,7 @@ auth.post("/logout", async (c) => {
 
 // GET /auth/me — return current user info (requires auth)
 auth.get("/me", authMiddleware, async (c) => {
-  const userId = c.get("userId") as string;
+  const userId = c.get("userId");
   const db = createDb(c.env.DB);
   const user = await getUserById(db, userId);
 

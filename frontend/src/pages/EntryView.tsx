@@ -164,39 +164,36 @@ export default function EntryView() {
               </h3>
               <div className="space-y-3">
                 {entry.media.map((m) => {
-                  if (m.mimeType.startsWith("image/")) {
+                  const mime = m.mimeType ?? "";
+                  if (mime.startsWith("image/")) {
                     return (
                       <img
                         key={m.id}
-                        src={`/api/media/${m.id}/download`}
-                        alt={m.originalFilename ?? "Image"}
+                        src={`/api/media/${m.id}`}
+                        alt="Image"
                         className="max-h-96 rounded-md"
                       />
                     );
                   }
-                  if (m.mimeType.startsWith("audio/")) {
+                  if (mime.startsWith("audio/")) {
                     return (
                       <div key={m.id}>
-                        <p className="mb-1 text-xs text-gray-400">
-                          {m.originalFilename ?? "Audio"}
-                        </p>
+                        <p className="mb-1 text-xs text-gray-400">Audio</p>
                         <audio
                           controls
-                          src={`/api/media/${m.id}/download`}
+                          src={`/api/media/${m.id}`}
                           className="w-full"
                         />
                       </div>
                     );
                   }
-                  if (m.mimeType.startsWith("video/")) {
+                  if (mime.startsWith("video/")) {
                     return (
                       <div key={m.id}>
-                        <p className="mb-1 text-xs text-gray-400">
-                          {m.originalFilename ?? "Video"}
-                        </p>
+                        <p className="mb-1 text-xs text-gray-400">Video</p>
                         <video
                           controls
-                          src={`/api/media/${m.id}/download`}
+                          src={`/api/media/${m.id}`}
                           className="max-h-96 w-full rounded-md"
                         />
                       </div>
@@ -204,10 +201,10 @@ export default function EntryView() {
                   }
                   return (
                     <div key={m.id} className="text-sm text-gray-500">
-                      {m.originalFilename ?? m.mimeType}
-                      {m.sizeBytes && (
+                      {m.mediaType ?? "file"}
+                      {m.fileSize && (
                         <span className="ml-2 text-gray-400">
-                          ({Math.round(m.sizeBytes / 1024)} KB)
+                          ({Math.round(m.fileSize / 1024)} KB)
                         </span>
                       )}
                     </div>

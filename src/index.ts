@@ -19,7 +19,11 @@ const app = new Hono<AppContext>();
 app.use(
   "*",
   cors({
-    origin: (origin) => origin, // Allow same-origin in dev; tighten in production
+    origin: (origin, c) => {
+      if (c.env.ENVIRONMENT !== "production") return origin;
+      const allowed = (c.env.ALLOWED_ORIGINS || "").split(",").map((s: string) => s.trim());
+      return allowed.includes(origin) ? origin : null;
+    },
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],

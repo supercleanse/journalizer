@@ -22,7 +22,8 @@ export default function NewEntry() {
     mutationFn: async (body: {
       rawContent: string;
       entryDate: string;
-      polish: boolean;
+      polishWithAI: boolean;
+      entryType: string;
     }) => {
       const result = await api.post<{ entry: Entry }>("/api/entries", body);
 
@@ -30,7 +31,10 @@ export default function NewEntry() {
       if (files.length > 0 && result.entry.id) {
         for (const file of files) {
           try {
-            await api.upload(`/api/media?entryId=${result.entry.id}`, file);
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("entryId", result.entry.id);
+            await api.upload("/api/media/upload", formData);
           } catch {
             toast.error(`Failed to upload ${file.name}`);
           }
@@ -57,7 +61,8 @@ export default function NewEntry() {
     createMutation.mutate({
       rawContent: content,
       entryDate,
-      polish: aiPolish,
+      polishWithAI: aiPolish,
+      entryType: files.length > 0 ? "photo" : "text",
     });
   };
 

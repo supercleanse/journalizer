@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
-import { listEntries, getMediaByEntry } from "../db/queries";
+import { listEntries, getMediaCountsByEntries } from "../db/queries";
 
 const exportRoutes = new Hono<AppContext>();
 
@@ -16,22 +16,21 @@ exportRoutes.get("/json", async (c) => {
     offset: 0,
   });
 
-  // Enrich with media
-  const enriched = await Promise.all(
-    entries.map(async (entry) => {
-      const media = await getMediaByEntry(db, entry.id);
-      return {
-        id: entry.id,
-        entryDate: entry.entryDate,
-        entryType: entry.entryType,
-        source: entry.source,
-        rawContent: entry.rawContent,
-        polishedContent: entry.polishedContent,
-        createdAt: entry.createdAt,
-        mediaCount: media.length,
-      };
-    })
+  // Enrich with media counts in a single query
+  const mediaCounts = await getMediaCountsByEntries(
+    db,
+    entries.map((e) => e.id)
   );
+  const enriched = entries.map((entry) => ({
+    id: entry.id,
+    entryDate: entry.entryDate,
+    entryType: entry.entryType,
+    source: entry.source,
+    rawContent: entry.rawContent,
+    polishedContent: entry.polishedContent,
+    createdAt: entry.createdAt,
+    mediaCount: mediaCounts[entry.id] ?? 0,
+  }));
 
   const exportData = {
     exportedAt: new Date().toISOString(),

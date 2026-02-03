@@ -60,13 +60,11 @@ export const api = {
   delete: <T>(path: string) =>
     request<T>(path, { method: "DELETE" }),
 
-  upload: async <T>(path: string, file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
+  upload: async <T>(path: string, data: FormData) => {
     const response = await fetch(path, {
       method: "POST",
       credentials: "include",
-      body: formData,
+      body: data,
     });
     if (!response.ok) {
       const data = await response.json().catch(() => null);

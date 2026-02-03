@@ -23,10 +23,13 @@ export interface Entry {
 export interface MediaAttachment {
   id: string;
   entryId: string;
-  mimeType: string;
+  mediaType: string;
+  mimeType: string | null;
   r2Key: string;
-  originalFilename: string | null;
-  sizeBytes: number | null;
+  fileSize: number | null;
+  durationSeconds: number | null;
+  transcription: string | null;
+  thumbnailR2Key: string | null;
   createdAt: string;
 }
 
@@ -44,9 +47,9 @@ export interface Reminder {
 }
 
 export interface PaginatedResponse<T> {
-  data: T[];
+  entries: T[];
   total: number;
-  page: number;
+  offset: number;
   limit: number;
 }
 

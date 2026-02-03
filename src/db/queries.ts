@@ -96,11 +96,14 @@ export async function listEntries(
   if (entryType) conditions.push(eq(entries.entryType, entryType));
   if (source) conditions.push(eq(entries.source, source));
   if (search) {
+    // Escape LIKE wildcards to prevent pattern injection
+    const escaped = search.replace(/%/g, "\\%").replace(/_/g, "\\_");
+    const pattern = `%${escaped}%`;
     conditions.push(
       or(
-        like(entries.polishedContent, `%${search}%`),
-        like(entries.rawContent, `%${search}%`)
-      )!
+        like(entries.polishedContent, pattern),
+        like(entries.rawContent, pattern)
+      ) ?? sql`1=0`
     );
   }
 
@@ -216,6 +219,31 @@ export async function getMediaByEntry(db: Database, entryId: string) {
   return db.select().from(media).where(eq(media.entryId, entryId));
 }
 
+export async function getMediaCountsByEntries(
+  db: Database,
+  entryIds: string[]
+): Promise<Record<string, number>> {
+  if (entryIds.length === 0) return {};
+  const rows = await db
+    .select({
+      entryId: media.entryId,
+      count: sql<number>`count(*)`,
+    })
+    .from(media)
+    .where(
+      sql`${media.entryId} IN (${sql.join(
+        entryIds.map((id) => sql`${id}`),
+        sql`, `
+      )})`
+    )
+    .groupBy(media.entryId);
+  const result: Record<string, number> = {};
+  for (const row of rows) {
+    result[row.entryId] = row.count;
+  }
+  return result;
+}
+
 export async function getMediaById(
   db: Database,
   id: string,
@@ -301,6 +329,19 @@ export async function getAllActiveReminders(db: Database) {
     .select()
     .from(reminders)
     .where(eq(reminders.isActive, 1));
+}
+
+export async function getUsersByIds(db: Database, ids: string[]) {
+  if (ids.length === 0) return [];
+  return db
+    .select()
+    .from(users)
+    .where(
+      sql`${users.id} IN (${sql.join(
+        ids.map((id) => sql`${id}`),
+        sql`, `
+      )})`
+    );
 }
 
 export async function getLastEntryDate(db: Database, userId: string) {

@@ -50,9 +50,10 @@ export function setSessionCookie(
   c: Context<AppContext, string>,
   token: string
 ) {
+  const isProduction = c.env?.ENVIRONMENT === "production";
   setCookie(c, "session", token, {
     httpOnly: true,
-    secure: true,
+    secure: isProduction,
     sameSite: "Lax",
     path: "/",
     maxAge: 3600,

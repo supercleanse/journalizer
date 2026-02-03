@@ -33,7 +33,15 @@ export async function validateTwilioSignature(
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(data));
   const expected = btoa(String.fromCharCode(...new Uint8Array(sig)));
 
-  return expected === signature;
+  // Constant-time comparison to prevent timing attacks
+  if (expected.length !== signature.length) return false;
+  const a = encoder.encode(expected);
+  const b = encoder.encode(signature);
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a[i] ^ b[i];
+  }
+  return mismatch === 0;
 }
 
 /**

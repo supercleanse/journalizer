@@ -40,7 +40,12 @@ const updateSettingsSchema = z.object({
 // PUT /api/settings — update settings
 settings.put("/", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
 
   const parsed = updateSettingsSchema.safeParse(body);
   if (!parsed.success) {
@@ -69,7 +74,12 @@ const verifyPhoneSchema = z.object({
 // POST /api/settings/verify-phone — initiate phone verification
 settings.post("/verify-phone", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
 
   const parsed = verifyPhoneSchema.safeParse(body);
   if (!parsed.success) {
@@ -115,7 +125,12 @@ const confirmPhoneSchema = z.object({
 // POST /api/settings/confirm-phone — confirm verification code
 settings.post("/confirm-phone", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
 
   const parsed = confirmPhoneSchema.safeParse(body);
   if (!parsed.success) {
@@ -129,7 +144,15 @@ settings.post("/confirm-phone", async (c) => {
     return c.json({ error: "No pending verification. Request a new code." }, 400);
   }
 
-  if (storedCode !== parsed.data.code) {
+  // Constant-time comparison to prevent timing attacks
+  const encoder = new TextEncoder();
+  const a = encoder.encode(storedCode);
+  const b = encoder.encode(parsed.data.code);
+  let mismatch = a.length !== b.length ? 1 : 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a[i] ^ (b[i] ?? 0);
+  }
+  if (mismatch !== 0) {
     return c.json({ error: "Incorrect verification code" }, 400);
   }
 

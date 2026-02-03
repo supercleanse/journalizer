@@ -15,7 +15,7 @@ interface EntriesResponse {
   limit: number;
 }
 
-type ViewMode = "all" | "month" | "week";
+// View mode removed — was not wired to filtering
 
 function calculateStreak(dates: string[]): number {
   if (dates.length === 0) return 0;
@@ -42,7 +42,6 @@ function calculateStreak(dates: string[]): number {
 export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [view, setView] = useState<ViewMode>("all");
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const limit = 20;
@@ -69,7 +68,7 @@ export default function Dashboard() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ["entries", debouncedSearch, selectedDate?.toISOString(), view],
+    queryKey: ["entries", debouncedSearch, selectedDate?.toISOString()],
     queryFn: ({ pageParam = 1 }) =>
       api.get<EntriesResponse>(`/api/entries?${buildParams(pageParam)}`),
     getNextPageParam: (lastPage, allPages) => {
@@ -93,7 +92,7 @@ export default function Dashboard() {
   const { data: allDatesData } = useQuery({
     queryKey: ["entry-dates"],
     queryFn: () =>
-      api.get<EntriesResponse>(`/api/entries?limit=100&page=1`),
+      api.get<EntriesResponse>(`/api/entries?limit=100&offset=0`),
   });
 
   const entryDates = useMemo(() => {
@@ -129,23 +128,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="mx-auto max-w-5xl px-4 py-6">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6">
           <h1 className="text-xl font-semibold text-gray-900">Your Journal</h1>
-          <div className="flex items-center gap-2">
-            {(["all", "month", "week"] as ViewMode[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
-                  view === v
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Search */}
