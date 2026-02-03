@@ -3,6 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2026-02-02"
 compatibility_flags = ["nodejs_compat"]
 
+# Static frontend assets (React SPA served from Worker)
+[assets]
+directory = "./frontend/dist"
+binding = "ASSETS"
+
 # D1 Database
 [[d1_databases]]
 binding = "DB"

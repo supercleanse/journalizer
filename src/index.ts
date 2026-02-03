@@ -36,8 +36,8 @@ app.use(
 // Global error handler
 app.onError(errorHandler);
 
-// Health check
-app.get("/", (c) => {
+// Health check (moved to /api/health so / can serve the SPA)
+app.get("/api/health", (c) => {
   return c.json({ name: "journalizer", version: "0.1.0", status: "ok" });
 });
 
@@ -55,7 +55,22 @@ app.route("/api/settings", settingsRoutes);
 app.route("/api/reminders", remindersRoutes);
 app.route("/api/export", exportRoutes);
 
-// 404 handler for unmatched routes
+// Serve frontend SPA for all non-API routes
+app.get("*", async (c) => {
+  const url = new URL(c.req.url);
+
+  // Try serving the exact static file first
+  const assetResponse = await c.env.ASSETS.fetch(c.req.raw);
+  if (assetResponse.status !== 404) {
+    return assetResponse;
+  }
+
+  // SPA fallback: serve index.html for client-side routing
+  const indexUrl = new URL("/index.html", url.origin);
+  return c.env.ASSETS.fetch(new Request(indexUrl));
+});
+
+// 404 handler for unmatched non-GET routes (POST/PUT/DELETE to unknown paths)
 app.notFound(() => {
   throw new RouteNotFound();
 });
