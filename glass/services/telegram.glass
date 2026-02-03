@@ -1,0 +1,35 @@
+=== Glass Unit ===
+id: services.telegram
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Telegram Bot API client for sending messages, retrieving file URLs, and managing webhook registration. This is the messaging transport layer replacing the previous Twilio SMS integration.
+source:
+  kind: prd
+  reference: "PRD Section 8 — Messaging Integration"
+parent: null
+stakeholder: engineering
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "TELEGRAM_BOT_TOKEN configured as Worker secret"
+  - "Valid chat ID for message sending"
+  - "Valid file ID for file URL retrieval"
+guarantees:
+  on_success:
+    - "sendTelegramMessage posts text to Telegram Bot API and returns true"
+    - "getTelegramFileUrl resolves file_id to downloadable HTTPS URL"
+    - "setTelegramWebhook registers webhook URL with Telegram"
+  on_failure:
+    - "sendTelegramMessage returns false on API error"
+    - "getTelegramFileUrl returns null on API error or missing file_path"
+    - "setTelegramWebhook returns false on API error"
+invariants:
+  - "All functions use standard Telegram Bot API HTTPS endpoints"
+  - "Bot token included in URL path (not headers) per Telegram convention"
+  - "Functions return boolean or nullable — callers handle failures"
+fails:
+  TelegramAPIError: "API request failed or returned non-ok status"

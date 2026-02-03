@@ -1,0 +1,41 @@
+=== Glass Unit ===
+id: routes.auth
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: HTTP endpoints for Google OAuth 2.0 authentication flow. Handles login redirect, OAuth callback with token exchange, logout with session cleanup, and authenticated user info retrieval.
+source:
+  kind: prd
+  reference: "PRD Section 7 — Authentication"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET configured as Worker secrets"
+  - "KV binding available for CSRF state and refresh token storage"
+  - "JWT_SECRET configured for session token signing"
+guarantees:
+  on_success:
+    - "GET /auth/google generates CSRF state, stores in KV with 5-min TTL, redirects to Google consent screen"
+    - "GET /auth/callback validates state, exchanges code for tokens via Google API, creates or updates user in D1"
+    - "Callback sets HttpOnly session cookie (Secure in production) and stores refresh token in KV with 7-day TTL"
+    - "POST /auth/logout clears session cookie and deletes refresh token from KV"
+    - "GET /auth/me returns authenticated user profile (requires valid session)"
+  on_failure:
+    - "Invalid or expired state parameter returns 403"
+    - "Failed token exchange returns 502 with generic message"
+    - "Failed user creation returns 500"
+    - "No credentials or tokens exposed in error responses"
+invariants:
+  - "State parameter is single-use (deleted from KV after validation)"
+  - "Session JWT includes userId and email with 1-hour expiry"
+  - "Client secret never appears in URLs, logs, or responses"
+  - "User profile fetched from Google userinfo endpoint, not raw JWT decode"
+fails:
+  InvalidState: "Return 403 — expired or missing CSRF state"
+  TokenExchangeFailed: "Return 502 — Google token exchange error"
+  UserCreationFailed: "Return 500 — database error during user upsert"

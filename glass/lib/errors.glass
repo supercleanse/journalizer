@@ -1,0 +1,65 @@
+=== Glass Unit ===
+id: lib.errors
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Centralized error class hierarchy and global error handler. Every failure mode in the application is represented by a named AppError subclass with an HTTP status code and machine-readable error code. The error handler formats all errors as structured JSON.
+source:
+  kind: ai-generated
+  reference: "Glass Framework — explicit failure mode handling"
+parent: null
+stakeholder: engineering
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Hono Context available for error handler"
+guarantees:
+  on_success:
+    - "AppError base class carries statusCode, code, and message"
+    - "Named subclasses exist for every failure mode across all modules"
+    - "errorHandler formats AppError instances as { error: { message, code, status } }"
+    - "Non-AppError exceptions return 500 with generic message in production"
+    - "Non-production environments include error message in response and full stack in logs"
+  on_failure:
+    - "Error handler itself never throws — always returns a JSON response"
+invariants:
+  - "Every error code is unique ALL_CAPS_SNAKE format"
+  - "HTTP status codes match error semantics (4xx for client, 5xx for server)"
+  - "Production responses never expose internal details or stack traces"
+fails:
+  AppError: "Base class — formatted as structured JSON by errorHandler"
+  InvalidState: "403 — CSRF state invalid"
+  TokenExchangeFailed: "502 — OAuth token exchange failed"
+  UserCreationFailed: "500 — user creation failed"
+  InvalidToken: "401 — JWT invalid or expired"
+  MissingToken: "401 — no session cookie"
+  RecordNotFound: "404 — database record not found"
+  DatabaseError: "500 — generic database error"
+  UniqueConstraintViolation: "409 — duplicate key"
+  ForeignKeyViolation: "409 — referential integrity"
+  NotNullViolation: "400 — required field missing"
+  RouteNotFound: "404 — no matching route"
+  AuthenticationRequired: "401 — auth required"
+  InternalError: "500 — unspecified server error"
+  ValidationError: "400 — input validation failed"
+  EntryNotFound: "404 — journal entry not found"
+  AIPolishFailed: "500 — AI polish error"
+  ReminderNotFound: "404 — reminder not found"
+  ApiError: "502 — external API error"
+  RateLimited: "429 — rate limit exceeded"
+  InvalidResponse: "502 — malformed API response"
+  UploadFailed: "500 — R2 upload error"
+  MetadataInsertFailed: "500 — media record insert failed"
+  MediaNotFound: "404 — media not found"
+  DownloadFailed: "502 — file download failed"
+  SMSDeliveryFailed: "502 — SMS delivery error (legacy)"
+  UserNotFound: "404 — user not found"
+  TimezoneInvalid: "400 — invalid timezone"
+  TwilioAPIError: "502 — Twilio API error (legacy)"
+  TelegramAPIError: "502 — Telegram API error"
+  InvalidSignature: "403 — webhook signature invalid"
+  R2ObjectNotFound: "404 — R2 object missing"
+  EmptyTranscript: "422 — transcription returned empty"

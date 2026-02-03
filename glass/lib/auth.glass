@@ -1,0 +1,38 @@
+=== Glass Unit ===
+id: lib.auth
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Session management utilities for JWT creation, verification, cookie handling, and request authentication middleware. Provides the security layer that protects all /api/* routes.
+source:
+  kind: prd
+  reference: "PRD Section 7 — Authentication"
+parent: null
+stakeholder: security
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "JWT_SECRET configured as Worker secret"
+  - "crypto.subtle available (Cloudflare Workers runtime)"
+guarantees:
+  on_success:
+    - "createSessionJWT produces signed JWT with userId, email, and 1-hour expiry"
+    - "verifySessionJWT validates signature and expiry, returns SessionPayload or null"
+    - "setSessionCookie sets HttpOnly, SameSite=Lax cookie with Secure flag in production"
+    - "clearSessionCookie removes session cookie"
+    - "authMiddleware extracts JWT from cookie, verifies, and sets userId/email on context"
+    - "generateStateParam returns 64-char hex string from 32 random bytes"
+  on_failure:
+    - "verifySessionJWT returns null on any verification failure (never throws)"
+    - "authMiddleware throws MissingToken when no session cookie present"
+    - "authMiddleware throws InvalidToken when JWT is invalid or expired"
+invariants:
+  - "Session JWTs always expire after 1 hour (3600 seconds)"
+  - "Cookie secure flag only set when ENVIRONMENT === 'production'"
+  - "Auth middleware runs before any /api/* handler"
+fails:
+  MissingToken: "Throw — no session cookie in request"
+  InvalidToken: "Throw — JWT signature invalid or expired"

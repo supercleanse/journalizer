@@ -1,0 +1,35 @@
+=== Glass Unit ===
+id: frontend.settings
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Settings page for user profile configuration, Telegram account linking, and reminder management. Three distinct sections: profile/voice settings, Telegram integration, and reminders CRUD.
+source:
+  kind: prd
+  reference: "PRD Section 9.4 — Settings Page"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User authenticated (protected route)"
+  - "Backend settings and reminders APIs available"
+guarantees:
+  on_success:
+    - "Profile form: displayName, timezone, voiceStyle (4-option select), voiceNotes (textarea, 500 char limit)"
+    - "Telegram section shows link/unlink state: unlinked (button), code displayed (8-char code + bot link), linked (unlink button)"
+    - "Bot username rendered dynamically from API response"
+    - "Reminders section: list existing with toggle/delete, create new (daily/weekly/monthly/smart)"
+    - "Query cache invalidated on all mutations"
+  on_failure:
+    - "API errors displayed as toast notifications"
+    - "Loading state shown during initial fetch"
+invariants:
+  - "Telegram linking code expires after 10 minutes (server-enforced)"
+  - "Reminder isActive sent as boolean to API"
+  - "Settings form preserves unsaved data during Telegram/reminder mutations"
+fails:
+  APIError: "Display toast notification"

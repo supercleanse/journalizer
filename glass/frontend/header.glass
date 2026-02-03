@@ -1,0 +1,32 @@
+=== Glass Unit ===
+id: frontend.header
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Sticky navigation header with branding, nav links, and user session controls. Present on all authenticated pages.
+source:
+  kind: prd
+  reference: "PRD Section 9 — Frontend Navigation"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Auth context with user object and logout function"
+  - "React Router for navigation and active link detection"
+guarantees:
+  on_success:
+    - "Sticky header with Journalizer branding"
+    - "Navigation links: Journal, New Entry, Settings"
+    - "Active link visually highlighted"
+    - "Sign out button calls logout and redirects to login"
+  on_failure:
+    - "Logout failure handled by auth context"
+invariants:
+  - "Header renders on all authenticated routes"
+  - "Navigation uses client-side routing (no full page reload)"
+fails:
+  LogoutFailed: "Auth context handles error, redirects to login"

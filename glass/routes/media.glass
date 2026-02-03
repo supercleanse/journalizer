@@ -1,0 +1,41 @@
+=== Glass Unit ===
+id: routes.media
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: API endpoints for media file upload and retrieval. Handles multipart file uploads to R2 storage and proxied downloads with correct MIME types.
+source:
+  kind: prd
+  reference: "PRD Section 5.2 — Storage Separation"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated (JWT validated by auth middleware)"
+  - "R2 bucket binding (MEDIA) available"
+  - "Request includes multipart form data with file and entryId"
+guarantees:
+  on_success:
+    - "POST /api/media/upload stores file in R2 and records metadata in D1"
+    - "GET /api/media/:id returns file content with correct Content-Type header"
+    - "File size validated at 25MB limit before processing"
+    - "MIME type validated against image/*, audio/*, video/* whitelist"
+    - "Cache-Control set to private, max-age=3600 on downloads"
+  on_failure:
+    - "Missing file returns 400"
+    - "Missing entryId returns 400"
+    - "Oversized file returns 400"
+    - "Invalid MIME type returns 400"
+    - "Media not found returns 404"
+invariants:
+  - "Media access scoped to authenticated user"
+  - "MIME type preserved from upload to download"
+  - "R2 key format ensures global uniqueness"
+fails:
+  ValidationError: "Return 400 for missing fields or invalid file"
+  MediaNotFound: "Return 404"
+  UploadFailed: "Return 500 — R2 storage error"

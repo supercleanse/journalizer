@@ -5,6 +5,9 @@ import { createDb } from "../db/index";
 import { getUserById, updateUser } from "../db/queries";
 import { ValidationError } from "../lib/errors";
 
+// Glass contract: failure modes
+export { ValidationError, UserNotFound, RateLimited } from "../lib/errors";
+
 const settings = new Hono<AppContext>();
 
 // GET /api/settings — get user settings
@@ -97,7 +100,7 @@ settings.post("/link-telegram", async (c) => {
   return c.json({
     success: true,
     code,
-    botUsername: "JournalizerCaseproofBot",
+    botUsername: "JournalizerAppBot",
     message: `Send this code to the Journalizer bot on Telegram: ${code}`,
   });
 });

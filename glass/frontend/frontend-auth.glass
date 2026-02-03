@@ -1,0 +1,36 @@
+=== Glass Unit ===
+id: frontend.frontend-auth
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: React authentication context provider and hook. Manages client-side auth state by checking the /auth/me endpoint on mount and providing login, logout, and refresh functions to all components.
+source:
+  kind: prd
+  reference: "PRD Section 7 — Authentication (frontend)"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Backend /auth/me and /auth/logout endpoints available"
+  - "Session cookie managed by backend auth flow"
+guarantees:
+  on_success:
+    - "AuthProvider checks auth state on mount via /auth/me"
+    - "useAuth hook provides: user, isLoading, isAuthenticated, login, logout, refresh"
+    - "login() redirects browser to /auth/google"
+    - "logout() calls /auth/logout endpoint, clears user state"
+    - "refresh() re-fetches user data from /auth/me"
+    - "isAuthenticated derived from user !== null"
+  on_failure:
+    - "Failed /auth/me sets user to null (not authenticated)"
+    - "Logout failure still clears local user state"
+invariants:
+  - "Auth state is single source of truth for all components"
+  - "Loading state true until initial auth check completes"
+  - "No tokens stored in localStorage or sessionStorage"
+fails:
+  AuthCheckFailed: "Set user to null — treat as unauthenticated"

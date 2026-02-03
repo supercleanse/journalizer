@@ -2,6 +2,9 @@ import { Hono } from "hono";
 import type { Env } from "../types/env";
 import { createDb } from "../db/index";
 import type { Database } from "../db/index";
+
+// Glass contract: failure modes
+export { InvalidSignature } from "../lib/errors";
 import {
   getUserByTelegramChatId,
   updateUser,
