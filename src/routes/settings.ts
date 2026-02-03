@@ -78,14 +78,18 @@ settings.post("/link-telegram", async (c) => {
   }
   await c.env.KV.put(rateLimitKey, String(attempts + 1), { expirationTtl: 3600 });
 
-  // Generate a 6-character alphanumeric linking code
-  const bytes = new Uint8Array(4);
+  // Generate an 8-character alphanumeric linking code with uniform distribution
+  const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const bytes = new Uint8Array(8);
   crypto.getRandomValues(bytes);
-  const code = Array.from(bytes)
-    .map((b) => b.toString(36).padStart(2, "0"))
-    .join("")
-    .slice(0, 6)
-    .toUpperCase();
+  const code = Array.from(bytes).map((b) => alphabet[b % 36]).join("");
+
+  // Check for collision before writing
+  const existing = await c.env.KV.get(`telegram_link:${code}`);
+  if (existing) {
+    // Extremely unlikely — ask user to retry
+    return c.json({ error: "Please try again" }, 409);
+  }
 
   // Store code → userId in KV with 10-minute TTL
   await c.env.KV.put(`telegram_link:${code}`, userId, { expirationTtl: 600 });
@@ -94,7 +98,7 @@ settings.post("/link-telegram", async (c) => {
     success: true,
     code,
     botUsername: "JournalizerCaseproofBot",
-    message: `Send this code to @JournalizerCaseproofBot on Telegram: ${code}`,
+    message: `Send this code to the Journalizer bot on Telegram: ${code}`,
   });
 });
 

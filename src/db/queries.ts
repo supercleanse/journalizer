@@ -65,8 +65,6 @@ export async function updateUser(
   data: Partial<{
     displayName: string;
     avatarUrl: string;
-    phoneNumber: string;
-    phoneVerified: number;
     telegramChatId: string | null;
     voiceStyle: string;
     voiceNotes: string;

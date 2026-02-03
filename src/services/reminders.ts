@@ -142,7 +142,8 @@ export async function handleCron(env: Env): Promise<void> {
   for (const reminder of activeReminders) {
     try {
       const user = usersMap.get(reminder.userId);
-      if (!user || !user.telegramChatId) continue;
+      const chatId = user?.telegramChatId;
+      if (!user || !chatId) continue;
 
       let timezone = user.timezone || "UTC";
       let local;
@@ -206,7 +207,7 @@ export async function handleCron(env: Env): Promise<void> {
         daysSinceLastEntry
       );
 
-      const sent = await sendTelegramMessage(env, user.telegramChatId!, message);
+      const sent = await sendTelegramMessage(env, chatId, message);
 
       if (sent) {
         await updateReminderLastSent(db, reminder.id, now.toISOString());

@@ -58,12 +58,14 @@ export default function Settings() {
 
   // ── Telegram linking ──
   const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [botUsername, setBotUsername] = useState<string>("JournalizerCaseproofBot");
 
   const linkTelegramMutation = useMutation({
     mutationFn: () =>
       api.post<{ code: string; botUsername: string }>("/api/settings/link-telegram", {}),
     onSuccess: (data) => {
       setLinkCode(data.code);
+      setBotUsername(data.botUsername);
     },
     onError: () => toast.error("Failed to generate linking code"),
   });
@@ -253,12 +255,12 @@ export default function Settings() {
               <p className="text-sm text-gray-700">
                 Send this code to{" "}
                 <a
-                  href="https://t.me/JournalizerCaseproofBot"
+                  href={`https://t.me/${botUsername}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-blue-600 hover:underline"
                 >
-                  @JournalizerCaseproofBot
+                  @{botUsername}
                 </a>{" "}
                 on Telegram:
               </p>
