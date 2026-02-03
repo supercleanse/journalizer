@@ -22,11 +22,13 @@ guarantees:
     - "Foreign key integrity is enforced (CASCADE deletes propagate correctly)"
     - "All tables have proper indexes for query performance"
     - "Drizzle ORM types match the underlying SQL schema exactly"
+    - "Users table includes role column (TEXT, default 'user', constrained to 'user'|'admin')"
   on_failure:
     - "Constraint violations return descriptive errors (unique, FK, NOT NULL)"
 invariants:
   - "Every entry belongs to exactly one user (entries.user_id is NOT NULL)"
   - "Every media record references a valid entry and user"
+  - "Every user has a valid role ('user' or 'admin') enforced by CHECK constraint"
   - "D1 stores only text and metadata — no binary blobs"
 fails:
   UniqueConstraintViolation: "Return error with conflicting field name"

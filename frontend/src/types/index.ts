@@ -60,5 +60,6 @@ export interface AuthUser {
   timezone: string;
   telegramLinked: boolean;
   voiceStyle: string;
+  role: "user" | "admin";
   createdAt: string;
 }

@@ -23,7 +23,7 @@ guarantees:
     - "MediaAttachment interface: id, entryId, mediaType, mimeType, r2Key, fileSize, durationSeconds, transcription, thumbnailR2Key, createdAt"
     - "Reminder interface: id, reminderType (daily/weekly/monthly/smart), timeOfDay, dayOfWeek, dayOfMonth, smartThreshold, isActive (boolean)"
     - "PaginatedResponse<T> generic wrapper with entries, total, offset, limit"
-    - "AuthUser interface: id, email, displayName, avatarUrl, timezone, telegramLinked, voiceStyle, createdAt"
+    - "AuthUser interface: id, email, displayName, avatarUrl, timezone, telegramLinked, voiceStyle, role, createdAt"
   on_failure:
     - "Type mismatches caught at compile time"
 invariants:

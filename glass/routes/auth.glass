@@ -18,13 +18,14 @@ requires:
   - "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET configured as Worker secrets"
   - "KV binding available for CSRF state and refresh token storage"
   - "JWT_SECRET configured for session token signing"
+  - "ADMIN_EMAILS optionally configured as comma-separated email addresses"
 guarantees:
   on_success:
     - "GET /auth/google generates CSRF state, stores in KV with 5-min TTL, redirects to Google consent screen"
-    - "GET /auth/callback validates state, exchanges code for tokens via Google API, creates or updates user in D1"
+    - "GET /auth/callback validates state, exchanges code for tokens via Google API, creates or updates user in D1, and assigns admin role if email matches ADMIN_EMAILS"
     - "Callback sets HttpOnly session cookie (Secure in production) and stores refresh token in KV with 7-day TTL"
     - "POST /auth/logout clears session cookie and deletes refresh token from KV"
-    - "GET /auth/me returns authenticated user profile (requires valid session)"
+    - "GET /auth/me returns authenticated user profile including role and telegramLinked fields (requires valid session)"
   on_failure:
     - "Invalid or expired state parameter returns 403"
     - "Failed token exchange returns 502 with generic message"

@@ -10,6 +10,7 @@ export interface Env {
   TELEGRAM_WEBHOOK_SECRET: string;
   ANTHROPIC_API_KEY: string;
   JWT_SECRET: string;
+  ADMIN_EMAILS?: string;
 }
 
 export interface AppVariables {

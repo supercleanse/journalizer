@@ -18,6 +18,7 @@ export const users = sqliteTable(
     voiceStyle: text("voice_style").default("natural"),
     voiceNotes: text("voice_notes"),
     timezone: text("timezone").default("America/New_York"),
+    role: text("role").notNull().default("user"),
     createdAt: text("created_at").default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").default(sql`(datetime('now'))`),
   },

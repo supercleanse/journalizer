@@ -8,6 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "journalizer-db"
 database_id = "d95a062f-d884-4873-a6f2-e795bf63e764"
+migrations_dir = "src/db/migrations"
 
 # R2 Media Storage
 [[r2_buckets]]
