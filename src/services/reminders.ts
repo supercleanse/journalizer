@@ -7,7 +7,7 @@ import {
   updateReminderLastSent,
   logProcessing,
 } from "../db/queries";
-import { sendSMS } from "./sms";
+import { sendTelegramMessage } from "./telegram";
 
 // Glass contract: failure modes (soft failures in cron loop)
 export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid } from "../lib/errors";
@@ -142,7 +142,8 @@ export async function handleCron(env: Env): Promise<void> {
   for (const reminder of activeReminders) {
     try {
       const user = usersMap.get(reminder.userId);
-      if (!user || !user.phoneNumber || user.phoneVerified !== 1) continue;
+      const chatId = user?.telegramChatId;
+      if (!user || !chatId) continue;
 
       let timezone = user.timezone || "UTC";
       let local;
@@ -206,7 +207,7 @@ export async function handleCron(env: Env): Promise<void> {
         daysSinceLastEntry
       );
 
-      const sent = await sendSMS(env, user.phoneNumber, message);
+      const sent = await sendTelegramMessage(env, chatId, message);
 
       if (sent) {
         await updateReminderLastSent(db, reminder.id, now.toISOString());
@@ -227,7 +228,7 @@ export async function handleCron(env: Env): Promise<void> {
           status: "error",
           details: JSON.stringify({
             reminderId: reminder.id,
-            error: "SMS delivery failed",
+            error: "Telegram delivery failed",
           }),
         });
       }

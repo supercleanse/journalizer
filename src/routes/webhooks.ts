@@ -1,126 +1,87 @@
 import { Hono } from "hono";
 import type { Env } from "../types/env";
 import { createDb } from "../db/index";
+import type { Database } from "../db/index";
 import {
-  getUserByPhone,
+  getUserByTelegramChatId,
+  updateUser,
   createEntry,
   logProcessing,
 } from "../db/queries";
+import type { TelegramUpdate } from "../services/telegram";
 import {
-  validateTwilioSignature,
-  twimlResponse,
-} from "../services/sms";
+  sendTelegramMessage,
+  getTelegramFileUrl,
+} from "../services/telegram";
 import { downloadAndStore } from "../services/media";
-import { transcribeFromR2 } from "../services/transcription";
 import { polishEntryWithLogging } from "../services/ai";
 import type { VoiceStyle } from "../services/ai";
 
 const webhooks = new Hono<{ Bindings: Env }>();
 
-// POST /api/webhooks/twilio — inbound SMS/MMS from Twilio
-webhooks.post("/twilio", async (c) => {
-  const formData = await c.req.parseBody();
-  const params: Record<string, string> = {};
-  for (const [key, value] of Object.entries(formData)) {
-    if (typeof value === "string") params[key] = value;
-  }
-
-  // Validate Twilio signature
-  const signature = c.req.header("X-Twilio-Signature") ?? "";
-  const requestUrl = new URL(c.req.url);
-  const isValid = await validateTwilioSignature(
-    c.env.TWILIO_AUTH_TOKEN,
-    signature,
-    `${requestUrl.origin}${requestUrl.pathname}`,
-    params
-  );
-
-  if (!isValid) {
-    return c.json({ error: "Invalid Twilio signature" }, 403);
-  }
-
-  const from = params["From"] ?? "";
-  const body = params["Body"] ?? "";
-  const numMedia = parseInt(params["NumMedia"] ?? "0", 10);
-
-  const db = createDb(c.env.DB);
-
-  // Look up user by verified phone number
-  const user = await getUserByPhone(db, from);
-  if (!user) {
-    return twimlResponse(
-      "This phone number is not registered with Journalizer. " +
-        "Sign up at journalizer.com and verify your phone number to start journaling via SMS."
-    );
-  }
-
+/**
+ * Process a Telegram journal message (text, media) in the background.
+ */
+async function processJournalMessage(
+  env: Env,
+  db: Database,
+  user: { id: string; voiceStyle: string | null; voiceNotes: string | null },
+  chatId: string,
+  message: NonNullable<TelegramUpdate["message"]>
+) {
+  const text = message.text ?? message.caption ?? "";
   const entryId = crypto.randomUUID();
-  const logId = crypto.randomUUID();
 
   await logProcessing(db, {
-    id: logId,
+    id: crypto.randomUUID(),
     entryId,
-    action: "sms_receive",
+    action: "telegram_receive",
     status: "success",
-    details: JSON.stringify({ from, numMedia, bodyLength: body.length }),
+    details: JSON.stringify({
+      chatId,
+      hasText: !!text,
+      hasPhoto: !!message.photo,
+      hasVoice: !!message.voice,
+      hasVideo: !!message.video,
+    }),
   });
 
-  // Determine entry type
   let entryType = "text";
-  let rawContent = body;
+  let rawContent = text;
 
   // Process media attachments
-  if (numMedia > 0) {
-    for (let i = 0; i < numMedia; i++) {
-      const mediaUrl = params[`MediaUrl${i}`];
-      const mediaContentType = params[`MediaContentType${i}`] ?? "application/octet-stream";
+  const mediaFile =
+    message.voice ??
+    message.audio ??
+    message.video ??
+    (message.photo ? message.photo[message.photo.length - 1] : null);
 
-      if (!mediaUrl) continue;
+  if (mediaFile) {
+    const fileUrl = await getTelegramFileUrl(env, mediaFile.file_id);
+
+    if (fileUrl) {
+      // Determine MIME type
+      let mimeType = "application/octet-stream";
+      if (message.voice) {
+        mimeType = message.voice.mime_type ?? "audio/ogg";
+        entryType = "audio";
+      } else if (message.audio) {
+        mimeType = message.audio.mime_type ?? "audio/mpeg";
+        entryType = "audio";
+      } else if (message.video) {
+        mimeType = message.video.mime_type ?? "video/mp4";
+        entryType = "video";
+      } else if (message.photo) {
+        mimeType = "image/jpeg";
+        entryType = "photo";
+      }
 
       try {
-        const mediaRecord = await downloadAndStore(c.env, db, mediaUrl, {
+        await downloadAndStore(env, db, fileUrl, {
           userId: user.id,
           entryId,
-          mimeType: mediaContentType,
+          mimeType,
         });
-
-        // Determine entry type from first media
-        if (i === 0) {
-          if (mediaContentType.startsWith("image/")) entryType = "photo";
-          else if (mediaContentType.startsWith("audio/")) entryType = "audio";
-          else if (mediaContentType.startsWith("video/")) entryType = "video";
-        }
-
-        // Transcribe audio/video
-        if (
-          mediaContentType.startsWith("audio/") ||
-          mediaContentType.startsWith("video/")
-        ) {
-          try {
-            const transcription = await transcribeFromR2(
-              c.env,
-              db,
-              mediaRecord.r2Key,
-              entryId,
-              mediaContentType
-            );
-            // Prepend or use transcription as raw content
-            rawContent = rawContent
-              ? `${rawContent}\n\n[Transcription]: ${transcription.transcript}`
-              : transcription.transcript;
-          } catch (err) {
-            await logProcessing(db, {
-              id: crypto.randomUUID(),
-              entryId,
-              action: "transcription",
-              status: "error",
-              details: JSON.stringify({
-                error: err instanceof Error ? err.message : "Transcription failed",
-                r2Key: mediaRecord.r2Key,
-              }),
-            }).catch(() => {});
-          }
-        }
       } catch (err) {
         await logProcessing(db, {
           id: crypto.randomUUID(),
@@ -129,10 +90,14 @@ webhooks.post("/twilio", async (c) => {
           status: "error",
           details: JSON.stringify({
             error: err instanceof Error ? err.message : "Media download failed",
-            mediaUrl,
           }),
         }).catch(() => {});
       }
+    }
+
+    // For voice/audio without text, set a placeholder so the entry isn't empty
+    if ((entryType === "audio" || entryType === "video") && !rawContent) {
+      rawContent = `[${entryType === "audio" ? "Voice" : "Video"} message]`;
     }
   }
 
@@ -142,7 +107,7 @@ webhooks.post("/twilio", async (c) => {
     try {
       const result = await polishEntryWithLogging(
         db,
-        c.env.ANTHROPIC_API_KEY,
+        env.ANTHROPIC_API_KEY,
         entryId,
         rawContent,
         {
@@ -164,11 +129,94 @@ webhooks.post("/twilio", async (c) => {
     rawContent: rawContent || undefined,
     polishedContent,
     entryType,
-    source: "sms",
+    source: "telegram",
     entryDate: today,
   });
 
-  return twimlResponse("Got it! Your journal entry has been saved. ✏️");
+  await sendTelegramMessage(
+    env,
+    chatId,
+    "Got it! Your journal entry has been saved."
+  );
+}
+
+// POST /api/webhooks/telegram — inbound messages from Telegram
+webhooks.post("/telegram", async (c) => {
+  // Validate Telegram webhook secret token
+  const secret = c.req.header("X-Telegram-Bot-Api-Secret-Token");
+  if (secret !== c.env.TELEGRAM_WEBHOOK_SECRET) {
+    return c.json({ error: "Unauthorized" }, 403);
+  }
+
+  const update = (await c.req.json()) as TelegramUpdate;
+  const message = update.message;
+
+  if (!message) {
+    return c.json({ ok: true });
+  }
+
+  const chatId = String(message.chat.id);
+  const text = message.text ?? message.caption ?? "";
+  const db = createDb(c.env.DB);
+
+  // Handle /start command (deep link from bot)
+  if (text === "/start") {
+    await sendTelegramMessage(
+      c.env,
+      chatId,
+      "Welcome to Journalizer! To link your account, go to Settings on journalizer.caseproof.workers.dev, " +
+        "click 'Link Telegram', and send the code here."
+    );
+    return c.json({ ok: true });
+  }
+
+  // Check if this is a linking code (8-char uppercase alphanumeric)
+  const trimmedText = text.trim().toUpperCase();
+  if (/^[0-9A-Z]{8}$/.test(trimmedText)) {
+    // Rate limit linking attempts: 10 per hour per chat ID
+    const rateLimitKey = `telegram_link_attempt:${chatId}`;
+    const attempts = parseInt((await c.env.KV.get(rateLimitKey)) ?? "0", 10);
+    if (attempts >= 10) {
+      await sendTelegramMessage(
+        c.env,
+        chatId,
+        "Too many linking attempts. Please try again later."
+      );
+      return c.json({ ok: true });
+    }
+    await c.env.KV.put(rateLimitKey, String(attempts + 1), { expirationTtl: 3600 });
+
+    const linkUserId = await c.env.KV.get(`telegram_link:${trimmedText}`);
+    if (linkUserId) {
+      await c.env.KV.delete(`telegram_link:${trimmedText}`);
+      await updateUser(db, linkUserId, { telegramChatId: chatId });
+      await sendTelegramMessage(
+        c.env,
+        chatId,
+        "Your Telegram is now linked to Journalizer! Send me text, photos, voice messages, or videos to create journal entries."
+      );
+      return c.json({ ok: true });
+    }
+  }
+
+  // Look up user by Telegram chat ID
+  const user = await getUserByTelegramChatId(db, chatId);
+  if (!user) {
+    await sendTelegramMessage(
+      c.env,
+      chatId,
+      "This Telegram account is not linked to Journalizer. " +
+        "Sign in at journalizer.caseproof.workers.dev and link your Telegram in Settings."
+    );
+    return c.json({ ok: true });
+  }
+
+  // Process the journal entry in the background to avoid Telegram webhook timeout
+  c.executionCtx.waitUntil(
+    processJournalMessage(c.env, db, user, chatId, message)
+  );
+
+  return c.json({ ok: true });
 });
 
 // POST /api/webhooks/lulu — print order status from Lulu (Phase 2)

@@ -237,6 +237,13 @@ export class TwilioAPIError extends AppError {
   }
 }
 
+export class TelegramAPIError extends AppError {
+  constructor(message = "Telegram API error") {
+    super(502, "TELEGRAM_API_ERROR", message);
+    this.name = "TelegramAPIError";
+  }
+}
+
 export class InvalidSignature extends AppError {
   constructor(message = "Invalid webhook signature") {
     super(403, "INVALID_SIGNATURE", message);

@@ -103,7 +103,8 @@ export async function transcribeFromR2(
   db: Database,
   r2Key: string,
   entryId: string,
-  mimeType: string
+  mimeType: string,
+  apiKey: string
 ): Promise<TranscriptionResult> {
   const logId = crypto.randomUUID();
 
@@ -115,7 +116,7 @@ export async function transcribeFromR2(
 
     const audioBuffer = await object.arrayBuffer();
 
-    const result = await transcribeMedia(env.DEEPGRAM_API_KEY, audioBuffer, {
+    const result = await transcribeMedia(apiKey, audioBuffer, {
       mimeType,
     });
 

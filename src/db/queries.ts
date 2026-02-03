@@ -36,6 +36,15 @@ export async function getUserByPhone(db: Database, phoneNumber: string) {
   return result[0] ?? null;
 }
 
+export async function getUserByTelegramChatId(db: Database, chatId: string) {
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.telegramChatId, chatId))
+    .limit(1);
+  return result[0] ?? null;
+}
+
 export async function createUser(
   db: Database,
   data: {
@@ -56,8 +65,7 @@ export async function updateUser(
   data: Partial<{
     displayName: string;
     avatarUrl: string;
-    phoneNumber: string;
-    phoneVerified: number;
+    telegramChatId: string | null;
     voiceStyle: string;
     voiceNotes: string;
     timezone: string;

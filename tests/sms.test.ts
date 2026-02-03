@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateVerificationCode, twimlResponse } from "../src/services/sms";
+import { generateVerificationCode } from "../src/services/sms";
 
 describe("generateVerificationCode", () => {
   it("returns a 6-digit string", () => {
@@ -22,29 +22,5 @@ describe("generateVerificationCode", () => {
     }
     // With random generation, we should get multiple unique codes
     expect(codes.size).toBeGreaterThan(1);
-  });
-});
-
-describe("twimlResponse", () => {
-  it("returns a Response with XML content type", () => {
-    const res = twimlResponse("Hello");
-    expect(res.headers.get("Content-Type")).toBe("text/xml");
-  });
-
-  it("wraps message in TwiML XML", async () => {
-    const res = twimlResponse("Test message");
-    const body = await res.text();
-    expect(body).toContain('<?xml version="1.0" encoding="UTF-8"?>');
-    expect(body).toContain("<Response>");
-    expect(body).toContain("<Message>Test message</Message>");
-    expect(body).toContain("</Response>");
-  });
-
-  it("escapes XML special characters", async () => {
-    const res = twimlResponse('Hello <world> & "friends"');
-    const body = await res.text();
-    expect(body).toContain("&lt;world&gt;");
-    expect(body).toContain("&amp;");
-    expect(body).toContain("&quot;friends&quot;");
   });
 });

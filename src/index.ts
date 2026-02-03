@@ -44,7 +44,7 @@ app.get("/", (c) => {
 // Public routes
 app.route("/auth", authRoutes);
 
-// Webhooks (their own auth — Twilio signature, Lulu API key)
+// Webhooks (their own auth — Telegram bot, Lulu API key)
 app.route("/api/webhooks", webhooksRoutes);
 
 // Protected routes (require auth)
