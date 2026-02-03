@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "journalizer-db"
-database_id = "placeholder-replace-after-d1-create"
+database_id = "d95a062f-d884-4873-a6f2-e795bf63e764"
 
 # R2 Media Storage
 [[r2_buckets]]
@@ -17,7 +17,7 @@ bucket_name = "journalizer-media"
 # KV Sessions & Cache
 [[kv_namespaces]]
 binding = "KV"
-id = "placeholder-replace-after-kv-create"
+id = "1c7eacd579fd4b6aa1b153fab4f9807a"
 
 [triggers]
 crons = ["*/15 * * * *"]

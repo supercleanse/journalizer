@@ -56,32 +56,26 @@ export default function Settings() {
     onError: () => toast.error("Failed to save settings"),
   });
 
-  // ── Phone verification ──
-  const [phone, setPhone] = useState("");
-  const [verifyCode, setVerifyCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
+  // ── Telegram linking ──
+  const [linkCode, setLinkCode] = useState<string | null>(null);
 
-  const sendCodeMutation = useMutation({
+  const linkTelegramMutation = useMutation({
     mutationFn: () =>
-      api.post("/api/settings/verify-phone", { phoneNumber: phone }),
-    onSuccess: () => {
-      setCodeSent(true);
-      toast.success("Verification code sent");
+      api.post<{ code: string; botUsername: string }>("/api/settings/link-telegram", {}),
+    onSuccess: (data) => {
+      setLinkCode(data.code);
     },
-    onError: () => toast.error("Failed to send code"),
+    onError: () => toast.error("Failed to generate linking code"),
   });
 
-  const confirmMutation = useMutation({
-    mutationFn: () =>
-      api.post("/api/settings/confirm-phone", { code: verifyCode }),
+  const unlinkTelegramMutation = useMutation({
+    mutationFn: () => api.post("/api/settings/unlink-telegram", {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
-      setCodeSent(false);
-      setPhone("");
-      setVerifyCode("");
-      toast.success("Phone verified");
+      setLinkCode(null);
+      toast.success("Telegram unlinked");
     },
-    onError: () => toast.error("Invalid code"),
+    onError: () => toast.error("Failed to unlink Telegram"),
   });
 
   // ── Reminders ──
@@ -232,57 +226,58 @@ export default function Settings() {
           </button>
         </form>
 
-        {/* Phone Verification */}
+        {/* Telegram Linking */}
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-lg font-medium text-gray-900">
-            Phone Verification
+            Telegram
           </h2>
           <p className="mb-3 text-sm text-gray-500">
-            Verify your phone to journal via SMS and receive reminders.
+            Link your Telegram to journal via messages and receive reminders.
           </p>
-          {settings?.phoneVerified ? (
-            <p className="text-sm text-green-600">
-              Verified: {settings.phoneNumber}
-            </p>
-          ) : !codeSent ? (
-            <div className="flex gap-2">
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+15551234567"
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
+          {settings?.telegramLinked ? (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-green-600">
+                Telegram linked
+              </p>
               <button
                 type="button"
-                onClick={() => sendCodeMutation.mutate()}
-                disabled={!phone || sendCodeMutation.isPending}
-                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                onClick={() => unlinkTelegramMutation.mutate()}
+                disabled={unlinkTelegramMutation.isPending}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
               >
-                Send Code
+                Unlink
               </button>
+            </div>
+          ) : linkCode ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-700">
+                Send this code to{" "}
+                <a
+                  href="https://t.me/JournalizerCaseproofBot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-blue-600 hover:underline"
+                >
+                  @JournalizerCaseproofBot
+                </a>{" "}
+                on Telegram:
+              </p>
+              <div className="inline-block rounded-md bg-gray-100 px-4 py-2 font-mono text-lg font-bold tracking-widest text-gray-900">
+                {linkCode}
+              </div>
+              <p className="text-xs text-gray-400">
+                This code expires in 10 minutes.
+              </p>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={verifyCode}
-                onChange={(e) => setVerifyCode(e.target.value)}
-                placeholder="123456"
-                maxLength={6}
-                className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
-              <button
-                type="button"
-                onClick={() => confirmMutation.mutate()}
-                disabled={
-                  verifyCode.length !== 6 || confirmMutation.isPending
-                }
-                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-              >
-                Verify
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => linkTelegramMutation.mutate()}
+              disabled={linkTelegramMutation.isPending}
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              {linkTelegramMutation.isPending ? "Generating..." : "Link Telegram"}
+            </button>
           )}
         </div>
 

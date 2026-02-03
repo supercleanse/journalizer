@@ -2,8 +2,7 @@ export interface User {
   displayName: string;
   email: string;
   timezone: string;
-  phoneNumber: string | null;
-  phoneVerified: boolean;
+  telegramLinked: boolean;
   voiceStyle: string;
   voiceNotes: string | null;
 }
@@ -59,7 +58,7 @@ export interface AuthUser {
   displayName: string;
   avatarUrl: string | null;
   timezone: string;
-  phoneVerified: boolean;
+  telegramLinked: boolean;
   voiceStyle: string;
   createdAt: string;
 }

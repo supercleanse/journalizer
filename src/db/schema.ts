@@ -14,6 +14,7 @@ export const users = sqliteTable(
     avatarUrl: text("avatar_url"),
     phoneNumber: text("phone_number"),
     phoneVerified: integer("phone_verified").default(0),
+    telegramChatId: text("telegram_chat_id"),
     voiceStyle: text("voice_style").default("natural"),
     voiceNotes: text("voice_notes"),
     timezone: text("timezone").default("America/New_York"),
