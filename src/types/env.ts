@@ -12,3 +12,13 @@ export interface Env {
   DEEPGRAM_API_KEY: string;
   JWT_SECRET: string;
 }
+
+export interface AppVariables {
+  userId: string;
+  email: string;
+}
+
+export interface AppContext {
+  Bindings: Env;
+  Variables: AppVariables;
+}
