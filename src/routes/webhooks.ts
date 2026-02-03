@@ -9,6 +9,7 @@ import {
   getUserByTelegramChatId,
   updateUser,
   createEntry,
+  updateEntry,
   logProcessing,
 } from "../db/queries";
 import type { TelegramUpdate } from "../services/telegram";
@@ -24,6 +25,9 @@ const webhooks = new Hono<{ Bindings: Env }>();
 
 /**
  * Process a Telegram journal message (text, media) in the background.
+ *
+ * Creates the entry first so that processing_log FK references are valid,
+ * then processes media and AI polish, updating the entry afterward.
  */
 async function processJournalMessage(
   env: Env,
@@ -34,6 +38,38 @@ async function processJournalMessage(
 ) {
   const text = message.text ?? message.caption ?? "";
   const entryId = crypto.randomUUID();
+
+  let entryType = "text";
+  let rawContent = text;
+
+  // Determine entry type and raw content from media
+  const mediaFile =
+    message.voice ??
+    message.audio ??
+    message.video ??
+    (message.photo ? message.photo[message.photo.length - 1] : null);
+
+  if (mediaFile) {
+    if (message.voice) entryType = "audio";
+    else if (message.audio) entryType = "audio";
+    else if (message.video) entryType = "video";
+    else if (message.photo) entryType = "photo";
+
+    if ((entryType === "audio" || entryType === "video") && !rawContent) {
+      rawContent = `[${entryType === "audio" ? "Voice" : "Video"} message]`;
+    }
+  }
+
+  // Create the entry first so processing_log FK references are valid
+  const today = new Date().toISOString().split("T")[0];
+  await createEntry(db, {
+    id: entryId,
+    userId: user.id,
+    rawContent: rawContent || undefined,
+    entryType,
+    source: "telegram",
+    entryDate: today,
+  });
 
   await logProcessing(db, {
     id: crypto.randomUUID(),
@@ -49,35 +85,16 @@ async function processJournalMessage(
     }),
   });
 
-  let entryType = "text";
-  let rawContent = text;
-
   // Process media attachments
-  const mediaFile =
-    message.voice ??
-    message.audio ??
-    message.video ??
-    (message.photo ? message.photo[message.photo.length - 1] : null);
-
   if (mediaFile) {
     const fileUrl = await getTelegramFileUrl(env, mediaFile.file_id);
 
     if (fileUrl) {
-      // Determine MIME type
       let mimeType = "application/octet-stream";
-      if (message.voice) {
-        mimeType = message.voice.mime_type ?? "audio/ogg";
-        entryType = "audio";
-      } else if (message.audio) {
-        mimeType = message.audio.mime_type ?? "audio/mpeg";
-        entryType = "audio";
-      } else if (message.video) {
-        mimeType = message.video.mime_type ?? "video/mp4";
-        entryType = "video";
-      } else if (message.photo) {
-        mimeType = "image/jpeg";
-        entryType = "photo";
-      }
+      if (message.voice) mimeType = message.voice.mime_type ?? "audio/ogg";
+      else if (message.audio) mimeType = message.audio.mime_type ?? "audio/mpeg";
+      else if (message.video) mimeType = message.video.mime_type ?? "video/mp4";
+      else if (message.photo) mimeType = "image/jpeg";
 
       try {
         await downloadAndStore(env, db, fileUrl, {
@@ -97,15 +114,9 @@ async function processJournalMessage(
         }).catch(() => {});
       }
     }
-
-    // For voice/audio without text, set a placeholder so the entry isn't empty
-    if ((entryType === "audio" || entryType === "video") && !rawContent) {
-      rawContent = `[${entryType === "audio" ? "Voice" : "Video"} message]`;
-    }
   }
 
-  // Polish with AI
-  let polishedContent: string | undefined;
+  // Polish with AI and update the entry
   if (rawContent) {
     try {
       const result = await polishEntryWithLogging(
@@ -118,23 +129,13 @@ async function processJournalMessage(
           voiceNotes: user.voiceNotes,
         }
       );
-      polishedContent = result.polishedContent;
+      await updateEntry(db, entryId, user.id, {
+        polishedContent: result.polishedContent,
+      });
     } catch {
-      // AI polish failed — continue with raw content
+      // AI polish failed — entry keeps raw content only
     }
   }
-
-  // Create the entry
-  const today = new Date().toISOString().split("T")[0];
-  await createEntry(db, {
-    id: entryId,
-    userId: user.id,
-    rawContent: rawContent || undefined,
-    polishedContent,
-    entryType,
-    source: "telegram",
-    entryDate: today,
-  });
 
   await sendTelegramMessage(
     env,

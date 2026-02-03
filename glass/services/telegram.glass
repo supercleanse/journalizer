@@ -22,7 +22,7 @@ guarantees:
   on_success:
     - "sendTelegramMessage posts text to Telegram Bot API and returns true"
     - "getTelegramFileUrl resolves file_id to downloadable HTTPS URL"
-    - "setTelegramWebhook registers webhook URL with Telegram"
+    - "setTelegramWebhook registers webhook URL with Telegram, optionally including secret_token for webhook authentication"
   on_failure:
     - "sendTelegramMessage returns false on API error"
     - "getTelegramFileUrl returns null on API error or missing file_path"
