@@ -11,7 +11,7 @@ import type { Entry } from "../types";
 interface EntriesResponse {
   entries: Entry[];
   total: number;
-  page: number;
+  offset: number;
   limit: number;
 }
 
@@ -47,16 +47,17 @@ export default function Dashboard() {
 
   const limit = 20;
 
-  const buildParams = (page: number) => {
+  const buildParams = (pageParam: number) => {
+    const offset = (pageParam - 1) * limit;
     const params = new URLSearchParams({
-      page: String(page),
+      offset: String(offset),
       limit: String(limit),
     });
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (selectedDate) {
       const d = format(selectedDate, "yyyy-MM-dd");
-      params.set("from", d);
-      params.set("to", d);
+      params.set("startDate", d);
+      params.set("endDate", d);
     }
     return params.toString();
   };
