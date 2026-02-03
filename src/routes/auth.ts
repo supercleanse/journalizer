@@ -13,6 +13,15 @@ import {
 import { getCookie } from "hono/cookie";
 import { InvalidState, TokenExchangeFailed, UserCreationFailed } from "../lib/errors";
 
+/**
+ * Determine user role based on ADMIN_EMAILS environment variable.
+ */
+export function determineRole(email: string, adminEmails?: string): "user" | "admin" {
+  if (!adminEmails) return "user";
+  const admins = adminEmails.split(",").map((e) => e.trim().toLowerCase());
+  return admins.includes(email.toLowerCase()) ? "admin" : "user";
+}
+
 const auth = new Hono<AppContext>();
 
 // GET /auth/google — redirect to Google consent screen
@@ -97,12 +106,14 @@ auth.get("/callback", async (c) => {
   const db = createDb(c.env.DB);
 
   // Create or update user
+  const role = determineRole(payload.email, c.env.ADMIN_EMAILS);
   let user = await getUserByGoogleId(db, payload.sub);
 
   if (user) {
     user = await updateUser(db, user.id, {
       displayName: payload.name ?? user.displayName ?? undefined,
       avatarUrl: payload.picture ?? user.avatarUrl ?? undefined,
+      role,
     });
   } else {
     user = await createUser(db, {
@@ -111,6 +122,7 @@ auth.get("/callback", async (c) => {
       email: payload.email,
       displayName: payload.name,
       avatarUrl: payload.picture,
+      role,
     });
   }
 
@@ -166,8 +178,9 @@ auth.get("/me", authMiddleware, async (c) => {
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
     timezone: user.timezone,
-    phoneVerified: user.phoneVerified === 1,
+    telegramLinked: !!user.telegramChatId,
     voiceStyle: user.voiceStyle,
+    role: user.role,
     createdAt: user.createdAt,
   });
 });
