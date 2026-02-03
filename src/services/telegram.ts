@@ -74,13 +74,18 @@ export async function getTelegramFileUrl(
  */
 export async function setTelegramWebhook(
   botToken: string,
-  webhookUrl: string
+  webhookUrl: string,
+  secretToken?: string
 ): Promise<boolean> {
   const url = `https://api.telegram.org/bot${botToken}/setWebhook`;
+  const body: Record<string, string> = { url: webhookUrl };
+  if (secretToken) {
+    body.secret_token = secretToken;
+  }
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: webhookUrl }),
+    body: JSON.stringify(body),
   });
   return response.ok;
 }
