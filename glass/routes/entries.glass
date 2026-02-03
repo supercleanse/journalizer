@@ -35,4 +35,3 @@ fails:
   ValidationError: "Return 400 with field-level error details"
   EntryNotFound: "Return 404"
   AIPolishFailed: "Log error, continue with raw content only"
-advisories: []

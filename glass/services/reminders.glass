@@ -38,4 +38,3 @@ fails:
   SMSDeliveryFailed: "Log error, continue with remaining reminders"
   UserNotFound: "Skip reminder silently"
   TimezoneInvalid: "Fall back to UTC"
-advisories: []

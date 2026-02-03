@@ -35,4 +35,3 @@ fails:
   InvalidState: "Return 403 — potential CSRF attack"
   TokenExchangeFailed: "Return 502 — Google API error"
   UserCreationFailed: "Return 500 — database error"
-advisories: []

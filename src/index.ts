@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AppContext } from "./types/env";
 import { authMiddleware } from "./lib/auth";
-import { errorHandler } from "./lib/errors";
+import { errorHandler, RouteNotFound, AuthenticationRequired, InternalError } from "./lib/errors";
 import authRoutes from "./routes/auth";
 import entriesRoutes from "./routes/entries";
 import mediaRoutes from "./routes/media";

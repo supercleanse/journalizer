@@ -12,6 +12,7 @@ import {
 } from "../db/queries";
 import { polishEntryWithLogging } from "../services/ai";
 import type { VoiceStyle } from "../services/ai";
+import { ValidationError, EntryNotFound, AIPolishFailed } from "../lib/errors";
 
 const entries = new Hono<AppContext>();
 
@@ -49,7 +50,7 @@ entries.get("/:id", async (c) => {
 
   const entry = await getEntryById(db, entryId, userId);
   if (!entry) {
-    return c.json({ error: "Entry not found" }, 404);
+    throw new EntryNotFound();
   }
 
   return c.json({ entry });
@@ -73,7 +74,7 @@ entries.post("/", async (c) => {
 
   const parsed = createEntrySchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: "Validation failed", details: parsed.error.flatten() }, 400);
+    throw new ValidationError("Validation failed");
   }
 
   const data = parsed.data;
@@ -135,14 +136,14 @@ entries.put("/:id", async (c) => {
 
   const parsed = updateEntrySchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: "Validation failed", details: parsed.error.flatten() }, 400);
+    throw new ValidationError("Validation failed");
   }
 
   const db = createDb(c.env.DB);
   const entry = await updateEntry(db, entryId, userId, parsed.data);
 
   if (!entry) {
-    return c.json({ error: "Entry not found" }, 404);
+    throw new EntryNotFound();
   }
 
   return c.json({ entry });
@@ -156,7 +157,7 @@ entries.delete("/:id", async (c) => {
 
   const deleted = await deleteEntry(db, entryId, userId);
   if (!deleted) {
-    return c.json({ error: "Entry not found" }, 404);
+    throw new EntryNotFound();
   }
 
   return c.json({ success: true });

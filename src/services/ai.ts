@@ -2,6 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Database } from "../db/index";
 import { logProcessing } from "../db/queries";
 
+// Glass contract: failure modes
+export { ApiError, RateLimited, InvalidResponse } from "../lib/errors";
+
 export type VoiceStyle = "natural" | "conversational" | "reflective" | "polished";
 
 const VOICE_INSTRUCTIONS: Record<VoiceStyle, string> = {

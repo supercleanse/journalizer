@@ -34,4 +34,3 @@ fails:
   RouteNotFound: "Return 404 with structured error"
   AuthenticationRequired: "Return 401 with structured error"
   InternalError: "Return 500 with generic message, log details server-side"
-advisories: []

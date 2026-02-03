@@ -1,6 +1,10 @@
 import type { Env } from "../types/env";
 import type { Database } from "../db/index";
 import { createMedia, getMediaById, getMediaByEntry } from "../db/queries";
+import { MetadataInsertFailed, DownloadFailed } from "../lib/errors";
+
+// Glass contract: additional failure modes (soft failures return null)
+export { UploadFailed, MediaNotFound } from "../lib/errors";
 
 export interface MediaRecord {
   id: string;
@@ -89,7 +93,7 @@ export async function uploadMedia(
   if (!record) {
     // Clean up R2 if D1 insert failed
     await env.MEDIA.delete(r2Key);
-    throw new Error("Failed to create media record");
+    throw new MetadataInsertFailed();
   }
 
   return record as MediaRecord;
@@ -157,7 +161,7 @@ export async function downloadAndStore(
 ): Promise<MediaRecord> {
   const response = await fetch(sourceUrl);
   if (!response.ok) {
-    throw new Error(`Failed to download media: ${response.status}`);
+    throw new DownloadFailed(`Failed to download media: ${response.status}`);
   }
 
   const fileSize = parseInt(response.headers.get("content-length") ?? "0", 10);

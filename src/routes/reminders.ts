@@ -8,6 +8,7 @@ import {
   updateReminder,
   deleteReminder,
 } from "../db/queries";
+import { ValidationError, ReminderNotFound } from "../lib/errors";
 
 const remindersRoutes = new Hono<AppContext>();
 
@@ -48,10 +49,7 @@ remindersRoutes.post("/", async (c) => {
 
   const parsed = createReminderSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json(
-      { error: "Validation failed", details: parsed.error.flatten() },
-      400
-    );
+    throw new ValidationError("Validation failed");
   }
 
   const db = createDb(c.env.DB);
@@ -84,17 +82,14 @@ remindersRoutes.put("/:id", async (c) => {
 
   const parsed = updateReminderSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json(
-      { error: "Validation failed", details: parsed.error.flatten() },
-      400
-    );
+    throw new ValidationError("Validation failed");
   }
 
   const db = createDb(c.env.DB);
   const reminder = await updateReminder(db, id, userId, parsed.data);
 
   if (!reminder) {
-    return c.json({ error: "Reminder not found" }, 404);
+    throw new ReminderNotFound();
   }
 
   return c.json({ reminder });
@@ -108,7 +103,7 @@ remindersRoutes.delete("/:id", async (c) => {
 
   const deleted = await deleteReminder(db, id, userId);
   if (!deleted) {
-    return c.json({ error: "Reminder not found" }, 404);
+    throw new ReminderNotFound();
   }
 
   return c.json({ success: true });

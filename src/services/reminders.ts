@@ -9,6 +9,9 @@ import {
 } from "../db/queries";
 import { sendSMS } from "./sms";
 
+// Glass contract: failure modes (soft failures in cron loop)
+export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid } from "../lib/errors";
+
 const DAILY_MESSAGES = [
   "Hey! What happened today? Just reply to this message.",
   "Quick check-in: How's your day going? Reply with anything.",

@@ -32,4 +32,3 @@ invariants:
 fails:
   RecordNotFound: "Return null for single-record lookups"
   DatabaseError: "Propagate with original error context"
-advisories: []

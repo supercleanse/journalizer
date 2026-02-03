@@ -34,4 +34,3 @@ invariants:
 fails:
   TwilioAPIError: "Return false from sendSMS"
   InvalidSignature: "Return false from validateTwilioSignature"
-advisories: []

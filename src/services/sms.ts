@@ -1,5 +1,8 @@
 import type { Env } from "../types/env";
 
+// Glass contract: failure modes (functions return boolean)
+export { TwilioAPIError, InvalidSignature } from "../lib/errors";
+
 /**
  * Validate Twilio webhook signature.
  * Uses the X-Twilio-Signature header to verify the request is from Twilio.

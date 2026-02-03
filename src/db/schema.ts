@@ -1,6 +1,9 @@
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
+// Glass contract: failure modes (constraint violations from D1)
+export { UniqueConstraintViolation, ForeignKeyViolation, NotNullViolation } from "../lib/errors";
+
 export const users = sqliteTable(
   "users",
   {

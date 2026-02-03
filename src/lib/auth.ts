@@ -4,6 +4,7 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
 import { getUserById } from "../db/queries";
+import { InvalidToken, MissingToken } from "./errors";
 
 export interface SessionPayload {
   userId: string;
@@ -68,15 +69,12 @@ export async function authMiddleware(
 ) {
   const token = getCookie(c, "session");
   if (!token) {
-    return c.json({ error: "Unauthorized", message: "Session required" }, 401);
+    throw new MissingToken();
   }
 
   const payload = await verifySessionJWT(token, c.env.JWT_SECRET);
   if (!payload) {
-    return c.json(
-      { error: "Unauthorized", message: "Invalid or expired session" },
-      401
-    );
+    throw new InvalidToken();
   }
 
   c.set("userId", payload.userId);

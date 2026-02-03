@@ -36,4 +36,3 @@ invariants:
 fails:
   AuthenticationRequired: "Redirect to /login"
   APIError: "Display toast notification with error message"
-advisories: []

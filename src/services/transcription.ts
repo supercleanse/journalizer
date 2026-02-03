@@ -1,6 +1,7 @@
 import type { Env } from "../types/env";
 import type { Database } from "../db/index";
 import { logProcessing } from "../db/queries";
+import { ApiError, R2ObjectNotFound, EmptyTranscript } from "../lib/errors";
 
 export interface TranscriptionResult {
   transcript: string;
@@ -74,7 +75,7 @@ export async function transcribeMedia(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Deepgram API error ${response.status}: ${errorText}`);
+    throw new ApiError(`Deepgram API error ${response.status}: ${errorText}`);
   }
 
   const data = (await response.json()) as DeepgramResponse;
@@ -83,7 +84,7 @@ export async function transcribeMedia(
   const alternative = channel?.alternatives?.[0];
 
   if (!alternative?.transcript) {
-    throw new Error("No transcript returned from Deepgram");
+    throw new EmptyTranscript("No transcript returned from Deepgram");
   }
 
   return {
@@ -109,7 +110,7 @@ export async function transcribeFromR2(
   try {
     const object = await env.MEDIA.get(r2Key);
     if (!object) {
-      throw new Error(`R2 object not found: ${r2Key}`);
+      throw new R2ObjectNotFound(`R2 object not found: ${r2Key}`);
     }
 
     const audioBuffer = await object.arrayBuffer();

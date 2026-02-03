@@ -2,6 +2,9 @@ import { eq, desc, and, sql, like, or, lte, gte } from "drizzle-orm";
 import type { Database } from "./index";
 import { users, entries, media, reminders, processingLog } from "./schema";
 
+// Glass contract: failure modes (soft failures return null)
+export { RecordNotFound, DatabaseError } from "../lib/errors";
+
 // ── Users ──────────────────────────────────────────────────────────
 
 export async function getUserById(db: Database, id: string) {

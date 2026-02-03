@@ -36,4 +36,3 @@ invariants:
   - "Infinite scroll sentinel cleans up observer on unmount"
 fails:
   APIError: "Handled by React Query error state"
-advisories: []

@@ -11,6 +11,7 @@ import {
   authMiddleware,
 } from "../lib/auth";
 import { getCookie } from "hono/cookie";
+import { InvalidState, TokenExchangeFailed, UserCreationFailed } from "../lib/errors";
 
 const auth = new Hono<AppContext>();
 
@@ -45,7 +46,7 @@ auth.get("/callback", async (c) => {
   // Validate CSRF state
   const storedState = await c.env.KV.get(`oauth_state:${state}`);
   if (!storedState) {
-    return c.json({ error: "Invalid or expired state parameter" }, 403);
+    throw new InvalidState();
   }
   await c.env.KV.delete(`oauth_state:${state}`);
 
@@ -63,7 +64,7 @@ auth.get("/callback", async (c) => {
   });
 
   if (!tokenResponse.ok) {
-    return c.json({ error: "Failed to exchange authorization code" }, 502);
+    throw new TokenExchangeFailed();
   }
 
   const tokens = (await tokenResponse.json()) as {
@@ -73,13 +74,13 @@ auth.get("/callback", async (c) => {
   };
 
   if (!tokens.id_token) {
-    return c.json({ error: "No ID token received from Google" }, 502);
+    throw new TokenExchangeFailed("No ID token received from Google");
   }
 
   // Decode ID token (Google's tokens are JWTs)
   const parts = tokens.id_token.split(".");
   if (parts.length !== 3) {
-    return c.json({ error: "Invalid ID token format" }, 502);
+    throw new TokenExchangeFailed("Invalid ID token format");
   }
 
   const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))) as {
@@ -110,7 +111,7 @@ auth.get("/callback", async (c) => {
   }
 
   if (!user) {
-    return c.json({ error: "Failed to create user" }, 500);
+    throw new UserCreationFailed();
   }
 
   // Store refresh token in KV
