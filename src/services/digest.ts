@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Database } from "../db/index";
+
+// Glass contract: failure modes
+export { AnthropicError, EmptyResponse, NoEntries } from "../lib/errors";
 import type { VoiceStyle } from "./ai";
 import {
   logProcessing,
@@ -110,7 +113,10 @@ export async function generateDigest(
   });
 
   const textBlock = message.content.find((block) => block.type === "text");
-  const digestContent = textBlock?.text ?? "";
+  if (!textBlock || !textBlock.text?.trim()) {
+    throw new Error("Anthropic did not return a non-empty text block for digest generation");
+  }
+  const digestContent = textBlock.text;
 
   return {
     digestContent,

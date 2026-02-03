@@ -503,23 +503,28 @@ export async function createDigest(
     sourceEntryIds: string[];
   }
 ) {
-  await db.insert(entries).values({
-    id: data.id,
-    userId: data.userId,
-    rawContent: data.rawContent,
-    polishedContent: data.polishedContent,
-    entryType: "digest",
-    source: "system",
-    entryDate: data.entryDate,
-  });
-
-  for (const sourceId of data.sourceEntryIds) {
-    await db.insert(digestEntries).values({
-      id: crypto.randomUUID(),
-      digestId: data.id,
-      sourceEntryId: sourceId,
-    });
-  }
+  await db.batch([
+    db.insert(entries).values({
+      id: data.id,
+      userId: data.userId,
+      rawContent: data.rawContent,
+      polishedContent: data.polishedContent,
+      entryType: "digest",
+      source: "system",
+      entryDate: data.entryDate,
+    }),
+    ...(data.sourceEntryIds.length > 0
+      ? [
+          db.insert(digestEntries).values(
+            data.sourceEntryIds.map((sourceId) => ({
+              id: crypto.randomUUID(),
+              digestId: data.id,
+              sourceEntryId: sourceId,
+            }))
+          ),
+        ]
+      : []),
+  ]);
 
   return getEntryById(db, data.id, data.userId);
 }
@@ -606,18 +611,21 @@ export async function getDigestMediaForEntries(
       )})`
     );
 
-  // Map: digestId -> media[]
-  const sourceToDigest: Record<string, string> = {};
+  // Map: sourceEntryId -> digestId[] (supports multiple digests per source)
+  const sourceToDigests: Record<string, string[]> = {};
   for (const row of joinRows) {
-    sourceToDigest[row.sourceEntryId] = row.digestId;
+    if (!sourceToDigests[row.sourceEntryId]) sourceToDigests[row.sourceEntryId] = [];
+    sourceToDigests[row.sourceEntryId].push(row.digestId);
   }
 
   const result: Record<string, typeof media.$inferSelect[]> = {};
   for (const row of mediaRows) {
-    const digestId = sourceToDigest[row.entryId];
-    if (digestId) {
-      if (!result[digestId]) result[digestId] = [];
-      result[digestId].push(row);
+    const digestIdsForSource = sourceToDigests[row.entryId];
+    if (digestIdsForSource) {
+      for (const digestId of digestIdsForSource) {
+        if (!result[digestId]) result[digestId] = [];
+        result[digestId].push(row);
+      }
     }
   }
   return result;

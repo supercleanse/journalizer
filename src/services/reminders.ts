@@ -12,7 +12,7 @@ import { sendTelegramMessage } from "./telegram";
 import { generateDailyDigest } from "./digest";
 
 // Glass contract: failure modes (soft failures in cron loop)
-export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid } from "../lib/errors";
+export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid, DigestGenerationFailed } from "../lib/errors";
 
 const DAILY_MESSAGES = [
   "Hey! What happened today? Just reply to this message.",
@@ -149,16 +149,16 @@ export async function handleCron(env: Env): Promise<void> {
         // Generate digest in the 00:00-00:14 window (midnight)
         if (local.hour !== 0 || local.minute >= 15) continue;
 
-        // Calculate yesterday's date in the user's timezone
-        const yesterdayUTC = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        const yesterdayLocal = getUserLocalTime(yesterdayUTC, timezone);
-        const targetDate = yesterdayLocal.dateString;
+        // Calculate yesterday's date using local calendar subtraction (DST-safe)
+        const [year, month, day] = local.dateString.split("-").map(Number);
+        const localCalendarDate = new Date(Date.UTC(year, month - 1, day));
+        localCalendarDate.setUTCDate(localCalendarDate.getUTCDate() - 1);
+        const targetDate = localCalendarDate.toISOString().slice(0, 10);
 
         // Skip if already generated for this date
         if (user.lastDigestDate === targetDate) continue;
 
-        // Generate digest (fire-and-forget to avoid blocking the loop)
-        generateDailyDigest(
+        await generateDailyDigest(
           env,
           db,
           user.id,

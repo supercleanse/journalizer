@@ -117,8 +117,8 @@ entries.get("/:id", async (c) => {
 
 const createEntrySchema = z.object({
   rawContent: z.string().min(1).optional(),
-  entryType: z.enum(["text", "audio", "video", "photo", "digest"]),
-  source: z.enum(["sms", "web", "telegram", "system"]).default("web"),
+  entryType: z.enum(["text", "audio", "video", "photo"]),
+  source: z.enum(["sms", "web", "telegram"]).default("web"),
   mood: z.string().optional(),
   tags: z.string().optional(),
   location: z.string().optional(),

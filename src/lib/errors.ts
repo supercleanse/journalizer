@@ -258,6 +258,34 @@ export class R2ObjectNotFound extends AppError {
   }
 }
 
+export class AnthropicError extends AppError {
+  constructor(message = "Anthropic API error") {
+    super(502, "ANTHROPIC_ERROR", message);
+    this.name = "AnthropicError";
+  }
+}
+
+export class EmptyResponse extends AppError {
+  constructor(message = "Empty response from AI") {
+    super(502, "EMPTY_RESPONSE", message);
+    this.name = "EmptyResponse";
+  }
+}
+
+export class NoEntries extends AppError {
+  constructor(message = "No entries for digest") {
+    super(404, "NO_ENTRIES", message);
+    this.name = "NoEntries";
+  }
+}
+
+export class DigestGenerationFailed extends AppError {
+  constructor(message = "Digest generation failed") {
+    super(500, "DIGEST_GENERATION_FAILED", message);
+    this.name = "DigestGenerationFailed";
+  }
+}
+
 export class EmptyTranscript extends AppError {
   constructor(message = "No transcript returned") {
     super(422, "EMPTY_TRANSCRIPT", message);
