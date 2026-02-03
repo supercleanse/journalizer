@@ -166,6 +166,8 @@ export async function downloadAndStore(
   }
 
   const fileSize = parseInt(response.headers.get("content-length") ?? "0", 10);
+  // Prefer caller-provided MIME type (from Telegram metadata) over CDN response header,
+  // because Telegram CDN often returns application/octet-stream.
   const mimeType =
     options.mimeType ?? response.headers.get("content-type") ?? "application/octet-stream";
 

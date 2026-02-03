@@ -3,8 +3,8 @@ import type { Database } from "../db/index";
 import { logProcessing } from "../db/queries";
 
 // Glass contract: failure modes
-export { R2ObjectNotFound, EmptyTranscript } from "../lib/errors";
 import { R2ObjectNotFound, EmptyTranscript } from "../lib/errors";
+export { R2ObjectNotFound, EmptyTranscript };
 
 export interface TranscriptionResult {
   transcript: string;
@@ -16,10 +16,18 @@ export interface TranscriptionResult {
 /**
  * Transcribe audio using Cloudflare Workers AI (Whisper model).
  */
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB (Telegram bot file limit)
+
 export async function transcribeAudio(
   ai: Ai,
   audioData: ArrayBuffer
 ): Promise<TranscriptionResult> {
+  if (audioData.byteLength > MAX_AUDIO_BYTES) {
+    throw new Error(
+      `Audio too large for transcription: ${audioData.byteLength} bytes (max ${MAX_AUDIO_BYTES})`
+    );
+  }
+
   const audioArray = [...new Uint8Array(audioData)];
 
   const result = await ai.run("@cf/openai/whisper", {

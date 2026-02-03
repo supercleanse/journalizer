@@ -148,8 +148,10 @@ async function processJournalMessage(
       }
 
       await updateEntry(db, entryId, user.id, { rawContent });
-    } catch {
-      // Transcription failed — error already logged by transcribeFromR2
+    } catch (err) {
+      // Transcription failed — transcribeFromR2 logs internally, but log here
+      // as fallback in case logging itself failed
+      console.error("Transcription failed for entry", entryId, err);
     }
   }
 
