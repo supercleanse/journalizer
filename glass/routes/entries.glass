@@ -1,0 +1,38 @@
+=== Glass Unit ===
+id: routes.entries
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: CRUD API for journal entries. Supports listing with pagination/filtering/search, creation with optional AI polish, editing, and deletion. All operations are scoped to the authenticated user.
+source:
+  kind: prd
+  reference: "PRD Section 10.2 — Journal Entries"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated (JWT validated by auth middleware)"
+  - "Request body matches Zod validation schema for POST/PUT"
+guarantees:
+  on_success:
+    - "GET /api/entries returns paginated results with total count"
+    - "GET /api/entries/:id includes eager-loaded media attachments"
+    - "POST /api/entries creates entry with optional AI polish"
+    - "AI polish failure does not prevent entry creation (graceful degradation)"
+    - "PUT /api/entries/:id updates only the fields provided"
+    - "DELETE /api/entries/:id cascade-deletes associated media"
+  on_failure:
+    - "Invalid request body returns 400 with Zod validation details"
+    - "Non-existent entry returns 404"
+invariants:
+  - "All queries filter by userId from JWT — no cross-user access"
+  - "Pagination limit capped at 100 to prevent abuse"
+fails:
+  ValidationError: "Return 400 with field-level error details"
+  EntryNotFound: "Return 404"
+  AIPolishFailed: "Log error, continue with raw content only"
+advisories: []
