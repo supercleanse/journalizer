@@ -84,6 +84,18 @@ export function twimlResponse(message: string): Response {
   });
 }
 
+// ── Message Templates ──────────────────────────────────────────────
+
+export const messageTemplates = {
+  verificationCode: (code: string) =>
+    `Your Journalizer verification code is: ${code}`,
+  entryConfirmation: () => "Got it! Your journal entry has been saved.",
+  reminderDaily: () =>
+    "Hey! What happened today? Just reply to this message.",
+  reminderNudge: (days: number) =>
+    `It's been ${days} day${days === 1 ? "" : "s"} since your last entry. No pressure, but we're here when you're ready!`,
+};
+
 function escapeXml(str: string): string {
   return str
     .replace(/&/g, "&amp;")

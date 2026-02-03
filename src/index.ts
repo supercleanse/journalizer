@@ -10,6 +10,8 @@ import settingsRoutes from "./routes/settings";
 import remindersRoutes from "./routes/reminders";
 import exportRoutes from "./routes/exportRoutes";
 import webhooksRoutes from "./routes/webhooks";
+import { handleCron } from "./services/reminders";
+import type { Env } from "./types/env";
 
 const app = new Hono<AppContext>();
 
@@ -46,4 +48,9 @@ app.route("/api/settings", settingsRoutes);
 app.route("/api/reminders", remindersRoutes);
 app.route("/api/export", exportRoutes);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(handleCron(env));
+  },
+};

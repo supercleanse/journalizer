@@ -293,6 +293,34 @@ export async function deleteReminder(
   return result.meta.changes > 0;
 }
 
+export async function getAllActiveReminders(db: Database) {
+  return db
+    .select()
+    .from(reminders)
+    .where(eq(reminders.isActive, 1));
+}
+
+export async function getLastEntryDate(db: Database, userId: string) {
+  const result = await db
+    .select({ entryDate: entries.entryDate })
+    .from(entries)
+    .where(eq(entries.userId, userId))
+    .orderBy(desc(entries.entryDate))
+    .limit(1);
+  return result[0]?.entryDate ?? null;
+}
+
+export async function updateReminderLastSent(
+  db: Database,
+  id: string,
+  timestamp: string
+) {
+  await db
+    .update(reminders)
+    .set({ lastSentAt: timestamp })
+    .where(eq(reminders.id, id));
+}
+
 // ── Processing Log ──────────────────────────────────────────────────
 
 export async function logProcessing(

@@ -19,5 +19,8 @@ bucket_name = "journalizer-media"
 binding = "KV"
 id = "placeholder-replace-after-kv-create"
 
+[triggers]
+crons = ["*/15 * * * *"]
+
 [vars]
 ENVIRONMENT = "development"
