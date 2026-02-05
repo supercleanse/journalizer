@@ -64,11 +64,21 @@ export function useTimezone(): string {
  * D1 stores datetimes without a Z suffix — treat them as UTC.
  */
 export function formatTimeInZone(utcString: string, timezone: string): string {
+  if (!utcString) return "";
   const date = utcString.endsWith("Z") ? new Date(utcString) : new Date(utcString + "Z");
-  return date.toLocaleTimeString("en-US", {
-    timeZone: timezone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+  if (isNaN(date.getTime())) return "";
+  try {
+    return date.toLocaleTimeString("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
 }

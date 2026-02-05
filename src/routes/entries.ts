@@ -23,10 +23,10 @@ import { transcribeFromR2 } from "../services/transcription";
 import { generateDailyDigest } from "../services/digest";
 import { sendTelegramMessage } from "../services/telegram";
 import {
+  AppError,
   ValidationError,
   EntryNotFound,
   AIPolishFailed,
-  AuthenticationRequired,
 } from "../lib/errors";
 
 const entries = new Hono<AppContext>();
@@ -267,7 +267,7 @@ entries.post("/:id/retranscribe", async (c) => {
 
   const user = await getUserById(db, userId);
   if (!user || user.role !== "admin") {
-    throw new AuthenticationRequired("Admin access required");
+    throw AppError.forbidden("Admin access required");
   }
 
   const entry = await getEntryById(db, entryId, userId);
@@ -291,8 +291,10 @@ entries.post("/:id/retranscribe", async (c) => {
     entryId
   );
 
-  const rawContent = entry.rawContent
-    ? `${entry.rawContent}\n\n[Transcription]\n${transcription.transcript}`
+  // Replace any existing [Transcription] block to avoid duplicates on re-transcribe
+  const existingText = entry.rawContent?.replace(/\n\n\[Transcription\]\n[\s\S]*$/, "") ?? "";
+  const rawContent = existingText
+    ? `${existingText}\n\n[Transcription]\n${transcription.transcript}`
     : transcription.transcript;
 
   await updateEntry(db, entryId, userId, { rawContent });
@@ -327,7 +329,7 @@ entries.post("/regenerate-digest", async (c) => {
 
   const user = await getUserById(db, userId);
   if (!user || user.role !== "admin") {
-    throw new AuthenticationRequired("Admin access required");
+    throw AppError.forbidden("Admin access required");
   }
 
   let body: unknown;
@@ -337,10 +339,12 @@ entries.post("/regenerate-digest", async (c) => {
     throw new ValidationError("Invalid JSON body");
   }
 
-  const { date } = body as { date: string };
-  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  const digestSchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD") });
+  const parsed2 = digestSchema.safeParse(body);
+  if (!parsed2.success) {
     throw new ValidationError("date must be YYYY-MM-DD");
   }
+  const { date } = parsed2.data;
 
   // Delete existing digest for this date
   const existingDigests = await db
