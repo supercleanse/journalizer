@@ -1,10 +1,10 @@
 === Glass Unit ===
 id: services.export
-version: 0.1.0
+version: 0.2.0
 language: typescript
 
 === Intent ===
-purpose: Export journal entries as PDF (with inline images) or ZIP (with multimedia files). Fetches entries from the database, builds a properly formatted PDF with text wrapping and embedded JPEG images, or packages everything into a ZIP archive.
+purpose: Export journal entries as PDF (with inline images) or ZIP (with multimedia files). Generates a professional PDF with Helvetica font, title page, page numbers, and properly formatted entry metadata including date/time and source.
 source:
   kind: prd
   reference: "PRD Section 9 — Data Export"
@@ -19,7 +19,12 @@ requires:
   - "R2 bucket is available for media retrieval"
 guarantees:
   on_success:
-    - "PDF contains all matching entries with proper text layout (multi-line, word-wrapped)"
+    - "PDF uses Helvetica and Helvetica-Bold fonts for clean rendering"
+    - "PDF begins with a centered title page showing user name, date range, and export metadata"
+    - "Each content page has a footer with 'userName - Page N' (title page excluded from numbering)"
+    - "Individual entries display date, time, and source (e.g., 'via Telegram')"
+    - "Daily entries display formatted date with 'Daily Entry' label"
+    - "Emojis and non-ASCII characters are sanitized (smart quotes replaced, emojis stripped)"
     - "JPEG images are embedded inline in the PDF after their entry text"
     - "ZIP contains a PDF plus audio/video files when multimedia is requested"
     - "Memory limits are enforced: max 50 images, 5MB per image, 20 multimedia files"
@@ -28,7 +33,7 @@ guarantees:
     - "Export errors are propagated to caller for user-facing error messages"
 invariants:
   - "PDF text uses absolute positioning (Tm operator) so all lines render correctly"
-  - "All user-generated text is escaped for PDF string safety"
+  - "All user-generated text is sanitized then escaped for PDF string safety"
   - "Image dimensions are scaled to fit within page margins"
   - "Entry limit of 500 is enforced to prevent memory exhaustion"
 fails:

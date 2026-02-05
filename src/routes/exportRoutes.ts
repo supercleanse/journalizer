@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
+import { getUserById } from "../db/queries";
 import {
   fetchEntriesForExport,
   generatePdfWithImages,
@@ -62,6 +63,10 @@ exportRoutes.get("/", async (c) => {
     throw new ValidationError("startDate cannot be after endDate");
   }
 
+  // Fetch user info for PDF title page
+  const user = await getUserById(db, userId);
+  const userName = user?.displayName || "My Journal";
+
   // Fetch entries with media
   const entries = await fetchEntriesForExport(db, c.env, {
     userId,
@@ -77,10 +82,10 @@ exportRoutes.get("/", async (c) => {
   }
 
   const today = new Date().toISOString().split("T")[0];
+  const pdfOptions = { userName, startDate, endDate };
 
   // Determine output format
   if (includeMultimedia) {
-    // Check if there's actually any multimedia
     const hasMultimedia = entries.some((e) =>
       e.media.some(
         (m) =>
@@ -89,7 +94,7 @@ exportRoutes.get("/", async (c) => {
     );
 
     if (hasMultimedia) {
-      const zip = await generateExportZip(entries, c.env);
+      const zip = await generateExportZip(entries, c.env, pdfOptions);
       return new Response(zip, {
         headers: {
           "Content-Type": "application/zip",
@@ -100,7 +105,7 @@ exportRoutes.get("/", async (c) => {
   }
 
   // Default: PDF with images
-  const pdf = generatePdfWithImages(entries);
+  const pdf = generatePdfWithImages(entries, pdfOptions);
   return new Response(pdf, {
     headers: {
       "Content-Type": "application/pdf",
