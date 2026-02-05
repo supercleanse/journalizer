@@ -81,6 +81,9 @@ export async function fetchEntriesForExport(
     return [];
   }
 
+  // Sort chronologically (oldest first) for export
+  entries.reverse();
+
   // Fetch media for all entries
   const entryIds = entries.map((e) => e.id);
   const mediaByEntry = await getMediaByEntryIds(db, entryIds);
@@ -301,7 +304,7 @@ export function generatePdfWithImages(entries: ExportEntry[], options: PdfOption
 
   // ── Content pages ──
   interface ContentBlock {
-    type: "text" | "image";
+    type: "text" | "heading" | "image";
     lines?: string[];
     imageId?: string;
     imageData?: Uint8Array;
@@ -320,19 +323,19 @@ export function generatePdfWithImages(entries: ExportEntry[], options: PdfOption
     // Skip entries with no content and no images
     if (!hasContent && !hasImages) continue;
 
-    // Entry header with date, time, and source
+    // Entry header with date, time, and source (bold, larger font)
     let headerText: string;
     if (entry.entryType === "digest") {
-      headerText = `--- ${formatDate(entry.entryDate)} (Daily Entry) ---`;
+      headerText = `${formatDate(entry.entryDate)} (Daily Entry)`;
     } else {
       const dateTime = entry.createdAt
         ? formatDateTime(entry.createdAt)
         : formatDate(entry.entryDate);
       const source = formatSource(entry.source);
-      headerText = `--- ${dateTime} (via ${source}) ---`;
+      headerText = `${dateTime} (via ${source})`;
     }
     contentBlocks.push({
-      type: "text",
+      type: "heading",
       lines: [prepareText(headerText)],
     });
 
@@ -382,8 +385,24 @@ export function generatePdfWithImages(entries: ExportEntry[], options: PdfOption
   currentPage.textCommands.push(`/F1 ${fontSize} Tf`);
   let yPos = pageHeight - margin;
 
+  const headingSize = 12;
+  const headingLeading = 18;
+
   for (const block of contentBlocks) {
-    if (block.type === "text" && block.lines) {
+    if (block.type === "heading" && block.lines) {
+      for (const line of block.lines) {
+        if (yPos - headingLeading < margin + 20) {
+          contentPages.push(currentPage);
+          currentPage = { textCommands: [], images: [] };
+          currentPage.textCommands.push(`/F1 ${fontSize} Tf`);
+          yPos = pageHeight - margin;
+        }
+        currentPage.textCommands.push(`/F2 ${headingSize} Tf`);
+        currentPage.textCommands.push(`1 0 0 1 ${margin} ${yPos} Tm (${line}) Tj`);
+        currentPage.textCommands.push(`/F1 ${fontSize} Tf`);
+        yPos -= headingLeading;
+      }
+    } else if (block.type === "text" && block.lines) {
       for (const line of block.lines) {
         if (yPos - leading < margin + 20) { // +20 to leave room for footer
           contentPages.push(currentPage);

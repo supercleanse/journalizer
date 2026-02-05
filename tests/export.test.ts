@@ -60,10 +60,11 @@ describe("generatePdfWithImages", () => {
     expect(text).toContain("Blair Williams - Page 1");
   });
 
-  it("formats source in entry header", () => {
+  it("formats source in entry header without dashes", () => {
     const result = generatePdfWithImages([makeEntry({ source: "telegram" })], defaultOptions);
     const text = new TextDecoder().decode(result);
     expect(text).toContain("via Telegram");
+    expect(text).not.toContain("---");
   });
 
   it("formats daily entry with date only", () => {
@@ -71,6 +72,13 @@ describe("generatePdfWithImages", () => {
     const text = new TextDecoder().decode(result);
     expect(text).toContain("January 15, 2026");
     expect(text).toContain("Daily Entry");
+  });
+
+  it("renders entry headers in bold font", () => {
+    const result = generatePdfWithImages([makeEntry()], defaultOptions);
+    const text = new TextDecoder().decode(result);
+    // Heading uses F2 (Helvetica-Bold) at 12pt
+    expect(text).toContain("/F2 12 Tf");
   });
 
   it("strips emojis from content", () => {
