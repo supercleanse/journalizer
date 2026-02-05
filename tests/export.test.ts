@@ -80,6 +80,15 @@ describe("generatePdfWithImages", () => {
     expect(text).not.toContain("🌍");
   });
 
+  it("omits entries with no content and no images", () => {
+    const result = generatePdfWithImages([
+      makeEntry({ rawContent: null, polishedContent: null }),
+    ], defaultOptions);
+    const text = new TextDecoder().decode(result);
+    expect(text).not.toContain("via Web");
+    expect(text).not.toContain("no content");
+  });
+
   it("replaces smart quotes with ASCII equivalents", () => {
     const result = generatePdfWithImages([makeEntry({ rawContent: "\u201CHello\u201D" })], defaultOptions);
     const text = new TextDecoder().decode(result);

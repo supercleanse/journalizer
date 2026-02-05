@@ -254,7 +254,7 @@ interface PageContent {
  */
 export function generatePdfWithImages(entries: ExportEntry[], options: PdfOptions): Uint8Array {
   const fontSize = 10;
-  const leading = 14;
+  const leading = 15; // ~1.5x line spacing
   const margin = 50;
   const pageHeight = 792;
   const pageWidth = 612;
@@ -313,6 +313,13 @@ export function generatePdfWithImages(entries: ExportEntry[], options: PdfOption
   const contentBlocks: ContentBlock[] = [];
 
   for (const entry of entries) {
+    const content = entry.polishedContent || entry.rawContent || "";
+    const hasContent = content.trim().length > 0;
+    const hasImages = entry.imageData.size > 0;
+
+    // Skip entries with no content and no images
+    if (!hasContent && !hasImages) continue;
+
     // Entry header with date, time, and source
     let headerText: string;
     if (entry.entryType === "digest") {
@@ -329,12 +336,13 @@ export function generatePdfWithImages(entries: ExportEntry[], options: PdfOption
       lines: [prepareText(headerText)],
     });
 
-    // Entry content
-    const content = entry.polishedContent || entry.rawContent || "(no content)";
-    const sanitized = sanitizeForPdf(content);
-    const escaped = escapeText(sanitized);
-    const wrappedLines = wrapText(escaped, maxLineLen);
-    contentBlocks.push({ type: "text", lines: wrappedLines });
+    // Entry content (only if non-empty)
+    if (hasContent) {
+      const sanitized = sanitizeForPdf(content);
+      const escaped = escapeText(sanitized);
+      const wrappedLines = wrapText(escaped, maxLineLen);
+      contentBlocks.push({ type: "text", lines: wrappedLines });
+    }
 
     // Images (inline after text)
     for (const [mediaId, imageBytes] of entry.imageData) {
