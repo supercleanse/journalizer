@@ -40,13 +40,26 @@ exportRoutes.get("/", async (c) => {
   }
   const entryTypes = entryTypesParam as "daily" | "individual" | "both";
 
-  // Validate date formats
+  // Validate date formats and semantic validity
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (startDate && !dateRegex.test(startDate)) {
-    throw new ValidationError("startDate must be YYYY-MM-DD");
+  if (startDate) {
+    if (!dateRegex.test(startDate)) {
+      throw new ValidationError("startDate must be YYYY-MM-DD");
+    }
+    if (isNaN(new Date(startDate).getTime())) {
+      throw new ValidationError("startDate is not a valid date");
+    }
   }
-  if (endDate && !dateRegex.test(endDate)) {
-    throw new ValidationError("endDate must be YYYY-MM-DD");
+  if (endDate) {
+    if (!dateRegex.test(endDate)) {
+      throw new ValidationError("endDate must be YYYY-MM-DD");
+    }
+    if (isNaN(new Date(endDate).getTime())) {
+      throw new ValidationError("endDate is not a valid date");
+    }
+  }
+  if (startDate && endDate && startDate > endDate) {
+    throw new ValidationError("startDate cannot be after endDate");
   }
 
   // Fetch entries with media

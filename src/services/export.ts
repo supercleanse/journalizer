@@ -15,6 +15,12 @@ export interface ExportOptions {
   includeMultimedia: boolean;
 }
 
+// Memory limits for Cloudflare Workers (128MB)
+const MAX_ENTRIES = 500;
+const MAX_IMAGES = 50;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB per image
+const MAX_MULTIMEDIA_FILES = 20;
+
 export interface MediaRecord {
   id: string;
   entryId: string;
@@ -74,30 +80,33 @@ export async function fetchEntriesForExport(
 
   // Build export entries with image data
   const exportEntries: ExportEntry[] = [];
+  let totalImagesLoaded = 0;
 
   for (const entry of entries) {
     const media = (mediaByEntry[entry.id] ?? []) as MediaRecord[];
     const imageData = new Map<string, Uint8Array>();
 
-    // Fetch image data if requested
-    if (includeImages) {
+    // Fetch image data if requested (with limits for memory safety)
+    if (includeImages && totalImagesLoaded < MAX_IMAGES) {
       const imageMedia = media.filter(
-        (m) => m.mimeType?.startsWith("image/")
+        (m) => m.mimeType?.startsWith("image/jpeg") // Only JPEG supported in PDF
       );
 
       // Fetch images in batches of 5 to avoid memory issues
-      for (let i = 0; i < imageMedia.length; i += 5) {
-        const batch = imageMedia.slice(i, i + 5);
+      for (let i = 0; i < imageMedia.length && totalImagesLoaded < MAX_IMAGES; i += 5) {
+        const batch = imageMedia.slice(i, Math.min(i + 5, MAX_IMAGES - totalImagesLoaded + i));
         await Promise.all(
           batch.map(async (m) => {
             try {
+              // Check file size before loading
               const obj = await env.MEDIA.get(m.r2Key);
-              if (obj) {
+              if (obj && obj.size <= MAX_IMAGE_SIZE) {
                 const buffer = await obj.arrayBuffer();
                 imageData.set(m.id, new Uint8Array(buffer));
+                totalImagesLoaded++;
               }
             } catch {
-              // Skip failed image fetches
+              // Skip failed image fetches - user can re-export if needed
             }
           })
         );
@@ -117,6 +126,18 @@ export async function fetchEntriesForExport(
   }
 
   return exportEntries;
+}
+
+interface PageContent {
+  textCommands: string[];
+  images: Array<{
+    id: string;
+    data: Uint8Array;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>;
 }
 
 /**
@@ -205,18 +226,6 @@ export function generatePdfWithImages(entries: ExportEntry[]): Uint8Array {
   }
 
   // Now build pages with content blocks
-  interface PageContent {
-    textCommands: string[];
-    images: Array<{
-      id: string;
-      data: Uint8Array;
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }>;
-  }
-
   const pages: PageContent[] = [];
   let currentPage: PageContent = { textCommands: [], images: [] };
   let yPos = pageHeight - margin;
@@ -314,18 +323,6 @@ function getJpegDimensions(data: Uint8Array): { width: number; height: number } 
   }
 
   return null;
-}
-
-interface PageContent {
-  textCommands: string[];
-  images: Array<{
-    id: string;
-    data: Uint8Array;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }>;
 }
 
 function buildPdfWithImages(
@@ -502,9 +499,14 @@ export async function generateExportZip(
   const pdf = generatePdfWithImages(entries);
   files["journal.pdf"] = pdf;
 
-  // Add multimedia files
+  // Add multimedia files (with limits for memory safety)
+  let multimediaCount = 0;
   for (const entry of entries) {
+    if (multimediaCount >= MAX_MULTIMEDIA_FILES) break;
+
     for (const media of entry.media) {
+      if (multimediaCount >= MAX_MULTIMEDIA_FILES) break;
+
       const isMultimedia =
         media.mimeType?.startsWith("audio/") ||
         media.mimeType?.startsWith("video/");
@@ -517,9 +519,10 @@ export async function generateExportZip(
             const ext = getExtensionFromMime(media.mimeType ?? "");
             const filename = `media/${entry.entryDate}_${entry.id.slice(0, 8)}_${media.id.slice(0, 8)}.${ext}`;
             files[filename] = new Uint8Array(buffer);
+            multimediaCount++;
           }
         } catch {
-          // Skip failed media fetches
+          // Skip failed media fetches - user can re-export if needed
         }
       }
     }
