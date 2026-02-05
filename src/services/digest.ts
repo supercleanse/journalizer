@@ -14,9 +14,9 @@ import {
 
 const VOICE_INSTRUCTIONS: Record<VoiceStyle, string> = {
   natural:
-    "Keep the raw, authentic feel. Minimal smoothing — just weave entries together naturally.",
+    "Keep the raw, authentic feel. Minimal smoothing — just combine the entries naturally.",
   conversational:
-    "Keep it casual and flowing. The digest should read like you're telling a friend about your day.",
+    "Keep it casual and flowing, like telling a friend about the day.",
   reflective:
     "Add gentle structure and flow. Slightly more thoughtful, introspective tone.",
   polished:
@@ -34,22 +34,25 @@ function buildDigestPrompt(
     day: "numeric",
     year: "numeric",
   });
-  return `You are creating a daily journal digest for ${formatted}.
-You will receive multiple journal entries from this day, in chronological order.
-Your task is to weave them into a single, cohesive narrative of the day.
+  return `You are combining the author's journal entries from ${formatted} into a single day entry.
 
-Rules:
-- Maintain chronological flow
-- Preserve key details, emotions, and events
-- Keep the author's voice and personality intact
+The author captured small moments throughout their day — quick voice memos, texts, photos. Your job is to combine these fragments into one journal entry that reads as if the author sat down and wrote about their day themselves.
+
+Critical rules:
+- Write in FIRST PERSON. You ARE the author. Say "I", "we", "my" — never "the author", "they", or "the family"
+- Match the author's actual voice from the source entries. Use their vocabulary, sentence patterns, and tone
+- Do NOT narrate or summarize from the outside. This is not a report about someone's day — it IS their journal entry
+- Do NOT add literary flourishes, topic sentences, or transitions like "The day began with..." or "Today was a day of..."
+- Do NOT editorialize emotions the author didn't express (e.g., don't add "it was bittersweet" unless they said that)
+- Maintain chronological flow but keep it natural — the way someone would actually write about their day
+- Preserve specific names, details, places, and the author's personality
 - Voice style: ${voiceStyle} — ${VOICE_INSTRUCTIONS[voiceStyle]}
 ${voiceNotes ? `- Author's voice notes: "${voiceNotes}"` : ""}
-- Write as a single continuous narrative, not bullet points or separate sections
-- If entries include audio/video transcriptions, integrate them naturally
-- Do NOT add events, emotions, or details that weren't mentioned
-- For photo-only entries (no text), you may briefly note the photo if context is available, or skip
+- If entries include audio/video transcriptions, use the content naturally as if the author wrote it
+- For photo-only entries (no text), you may briefly mention what was captured or skip
+- Write as continuous prose, not bullet points or sections
 
-Return ONLY the digest narrative. No preamble, explanations, titles, or metadata.`;
+Return ONLY the combined journal entry. No preamble, explanations, titles, or metadata.`;
 }
 
 export interface DigestEntry {
