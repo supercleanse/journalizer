@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import Header from "../components/Header";
+import ExportForm from "../components/ExportForm";
 import { api } from "../lib/api";
 import type { User, Reminder } from "../types";
 
@@ -633,6 +634,14 @@ export default function Settings() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Export Data */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-lg font-medium text-gray-900">
+            Export Journal
+          </h2>
+          <ExportForm />
         </div>
       </main>
     </div>
