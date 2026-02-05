@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { format } from "date-fns";
 import type { Entry } from "../types";
+import { formatTimeInZone } from "../lib/hooks";
 
 const typeLabels: Record<string, string> = {
   text: "Text",
@@ -58,7 +58,7 @@ function MediaPreview({ entry }: { entry: Entry }) {
   );
 }
 
-export default function EntryCard({ entry }: { entry: Entry }) {
+export default function EntryCard({ entry, timezone }: { entry: Entry; timezone: string }) {
   const [expanded, setExpanded] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const content = entry.polishedContent || entry.rawContent || "";
@@ -89,7 +89,7 @@ export default function EntryCard({ entry }: { entry: Entry }) {
             </span>
           ) : (
             <time className="text-xs text-gray-400">
-              {format(new Date(entry.createdAt ?? entry.entryDate), "h:mm a")}
+              {formatTimeInZone(entry.createdAt ?? entry.entryDate, timezone)}
             </time>
           )}
           <div className="flex items-center gap-1.5">

@@ -5,7 +5,7 @@ import Header from "../components/Header";
 import EntryCard from "../components/EntryCard";
 import Calendar from "../components/Calendar";
 import { api } from "../lib/api";
-import { useDebouncedValue, useIntersectionObserver } from "../lib/hooks";
+import { useDebouncedValue, useIntersectionObserver, useTimezone } from "../lib/hooks";
 import type { Entry } from "../types";
 
 interface EntriesResponse {
@@ -40,6 +40,7 @@ function calculateStreak(dates: string[]): number {
 }
 
 export default function Dashboard() {
+  const timezone = useTimezone();
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
@@ -220,7 +221,7 @@ export default function Dashboard() {
                     </h2>
                     <div className="space-y-3">
                       {entries.map((entry) => (
-                        <EntryCard key={entry.id} entry={entry} />
+                        <EntryCard key={entry.id} entry={entry} timezone={timezone} />
                       ))}
                     </div>
                   </div>

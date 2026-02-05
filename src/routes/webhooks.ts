@@ -34,7 +34,7 @@ const webhooks = new Hono<{ Bindings: Env }>();
 async function processJournalMessage(
   env: Env,
   db: Database,
-  user: { id: string; voiceStyle: string | null; voiceNotes: string | null },
+  user: { id: string; voiceStyle: string | null; voiceNotes: string | null; timezone: string | null },
   chatId: string,
   message: NonNullable<TelegramUpdate["message"]>
 ) {
@@ -58,8 +58,8 @@ async function processJournalMessage(
     else if (message.photo) entryType = "photo";
   }
 
-  // Create the entry first so processing_log FK references are valid
-  const today = new Date().toISOString().split("T")[0];
+  // Use user's timezone for entry_date (not UTC)
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: user.timezone || "UTC" });
   try {
     await createEntry(db, {
       id: entryId,

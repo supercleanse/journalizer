@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "./api";
 
 /**
  * Debounce a value by the given delay in ms.
@@ -43,4 +45,40 @@ export function useIntersectionObserver(
   }, [enabled, stableCallback]);
 
   return ref;
+}
+
+/**
+ * Returns the user's timezone from settings, falling back to browser timezone.
+ */
+export function useTimezone(): string {
+  const { data } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api.get<{ timezone: string }>("/api/settings"),
+    staleTime: 5 * 60 * 1000,
+  });
+  return data?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/**
+ * Format a UTC datetime string in the user's timezone.
+ * D1 stores datetimes without a Z suffix — treat them as UTC.
+ */
+export function formatTimeInZone(utcString: string, timezone: string): string {
+  if (!utcString) return "";
+  const date = utcString.endsWith("Z") ? new Date(utcString) : new Date(utcString + "Z");
+  if (isNaN(date.getTime())) return "";
+  try {
+    return date.toLocaleTimeString("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
 }
