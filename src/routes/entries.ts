@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
+import { and, eq } from "drizzle-orm";
+import { entries as entriesTable } from "../db/schema";
 import {
   listEntries,
   getEntryById,
@@ -17,7 +19,15 @@ import {
 } from "../db/queries";
 import { polishEntryWithLogging } from "../services/ai";
 import type { VoiceStyle } from "../services/ai";
-import { ValidationError, EntryNotFound, AIPolishFailed } from "../lib/errors";
+import { transcribeFromR2 } from "../services/transcription";
+import { generateDailyDigest } from "../services/digest";
+import { sendTelegramMessage } from "../services/telegram";
+import {
+  ValidationError,
+  EntryNotFound,
+  AIPolishFailed,
+  AuthenticationRequired,
+} from "../lib/errors";
 
 const entries = new Hono<AppContext>();
 
@@ -245,6 +255,120 @@ entries.delete("/:id", async (c) => {
   await Promise.allSettled(r2Keys.map((key) => c.env.MEDIA.delete(key)));
 
   return c.json({ success: true });
+});
+
+// ── Admin Endpoints ─────────────────────────────────────────────────
+
+// POST /api/entries/:id/retranscribe — re-transcribe audio/video (admin only)
+entries.post("/:id/retranscribe", async (c) => {
+  const userId = c.get("userId");
+  const entryId = c.req.param("id");
+  const db = createDb(c.env.DB);
+
+  const user = await getUserById(db, userId);
+  if (!user || user.role !== "admin") {
+    throw new AuthenticationRequired("Admin access required");
+  }
+
+  const entry = await getEntryById(db, entryId, userId);
+  if (!entry) {
+    throw new EntryNotFound();
+  }
+
+  const mediaRows = await getMediaByEntry(db, entryId);
+  const audioMedia = mediaRows.find(
+    (m) =>
+      m.mimeType?.startsWith("audio/") || m.mimeType?.startsWith("video/")
+  );
+  if (!audioMedia) {
+    return c.json({ error: "No audio/video media found on this entry" }, 400);
+  }
+
+  const transcription = await transcribeFromR2(
+    c.env,
+    db,
+    audioMedia.r2Key,
+    entryId
+  );
+
+  const rawContent = entry.rawContent
+    ? `${entry.rawContent}\n\n[Transcription]\n${transcription.transcript}`
+    : transcription.transcript;
+
+  await updateEntry(db, entryId, userId, { rawContent });
+
+  // Polish the transcription
+  try {
+    const result = await polishEntryWithLogging(
+      db,
+      c.env.ANTHROPIC_API_KEY,
+      entryId,
+      rawContent,
+      {
+        voiceStyle: (user.voiceStyle as VoiceStyle) ?? "natural",
+        voiceNotes: user.voiceNotes,
+      }
+    );
+    await updateEntry(db, entryId, userId, {
+      polishedContent: result.polishedContent,
+    });
+  } catch {
+    // Polish failed — keep raw content
+  }
+
+  const updated = await getEntryById(db, entryId, userId);
+  return c.json({ entry: updated, transcript: transcription.transcript });
+});
+
+// POST /api/entries/regenerate-digest — regenerate digest for a date (admin only)
+entries.post("/regenerate-digest", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+
+  const user = await getUserById(db, userId);
+  if (!user || user.role !== "admin") {
+    throw new AuthenticationRequired("Admin access required");
+  }
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new ValidationError("Invalid JSON body");
+  }
+
+  const { date } = body as { date: string };
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new ValidationError("date must be YYYY-MM-DD");
+  }
+
+  // Delete existing digest for this date
+  const existingDigests = await db
+    .select()
+    .from(entriesTable)
+    .where(
+      and(
+        eq(entriesTable.userId, userId),
+        eq(entriesTable.entryType, "digest"),
+        eq(entriesTable.entryDate, date)
+      )
+    );
+
+  for (const digest of existingDigests) {
+    await deleteEntry(db, digest.id, userId);
+  }
+
+  await generateDailyDigest(
+    c.env,
+    db,
+    userId,
+    date,
+    async (chatId, message) => {
+      await sendTelegramMessage(c.env, chatId, message);
+    }
+  );
+
+  return c.json({ success: true, date });
 });
 
 export default entries;

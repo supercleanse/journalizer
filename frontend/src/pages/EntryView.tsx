@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import toast from "react-hot-toast";
 import Header from "../components/Header";
 import { api } from "../lib/api";
+import { useTimezone, formatTimeInZone } from "../lib/hooks";
 import type { Entry } from "../types";
 
 export default function EntryView() {
@@ -44,6 +45,7 @@ export default function EntryView() {
     onError: () => toast.error("Failed to delete entry"),
   });
 
+  const timezone = useTimezone();
   const entry = data?.entry;
   const isDigest = entry?.entryType === "digest";
 
@@ -268,10 +270,7 @@ export default function EntryView() {
                       >
                         <div className="mb-1 flex items-center gap-2 text-xs text-gray-400">
                           <time>
-                            {format(
-                              new Date(src.createdAt ?? src.entryDate),
-                              "h:mm a"
-                            )}
+                            {formatTimeInZone(src.createdAt ?? src.entryDate, timezone)}
                           </time>
                           <span className="rounded-full bg-gray-100 px-1.5 py-0.5 font-medium text-gray-500">
                             {src.entryType}

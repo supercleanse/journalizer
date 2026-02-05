@@ -133,7 +133,7 @@ export async function listEntries(
       .select()
       .from(entries)
       .where(where)
-      .orderBy(desc(entries.entryDate))
+      .orderBy(desc(entries.entryDate), desc(entries.createdAt))
       .limit(limit)
       .offset(offset),
     db
