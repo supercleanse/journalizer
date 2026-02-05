@@ -15,6 +15,7 @@
     "@anthropic-ai/sdk": "^0.72.1",
     "@tsndr/cloudflare-worker-jwt": "^3.2.1",
     "drizzle-orm": "^0.45.1",
+    "fflate": "^0.8.2",
     "hono": "^4.11.7",
     "zod": "^4.3.6"
   },
