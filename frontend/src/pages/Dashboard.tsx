@@ -150,7 +150,7 @@ export default function Dashboard() {
               {mode === "all"
                 ? "All"
                 : mode === "digests"
-                  ? "Digests"
+                  ? "Daily"
                   : "Individual"}
             </button>
           ))}

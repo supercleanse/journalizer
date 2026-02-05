@@ -8,7 +8,7 @@ const typeLabels: Record<string, string> = {
   photo: "Photo",
   audio: "Audio",
   video: "Video",
-  digest: "Daily Digest",
+  digest: "Daily Entry",
 };
 
 const TRUNCATE_LENGTH = 300;
@@ -77,15 +77,15 @@ export default function EntryCard({ entry, timezone }: { entry: Entry; timezone:
     <div
       className={`rounded-lg border transition-colors ${
         isDigest
-          ? "border-purple-200 bg-purple-50/30 hover:border-purple-300"
+          ? "border-blue-200 bg-blue-50/30 hover:border-blue-300"
           : "border-gray-200 bg-white hover:border-gray-300"
       }`}
     >
       <Link to={`/entry/${entry.id}`} className="block p-4">
         <div className="mb-2 flex items-center justify-between">
           {isDigest ? (
-            <span className="text-xs font-medium text-purple-600">
-              Daily Digest
+            <span className="text-xs font-medium text-blue-600">
+              Daily Entry
             </span>
           ) : (
             <time className="text-xs text-gray-400">
