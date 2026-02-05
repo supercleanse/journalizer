@@ -170,9 +170,9 @@ export function generatePdfWithImages(entries: ExportEntry[]): Uint8Array {
   contentBlocks.push({
     type: "text",
     lines: [
-      "My Journal - Journalizer Export",
-      `Exported: ${new Date().toISOString().split("T")[0]}`,
-      `Total entries: ${entries.length}`,
+      escapeText("My Journal - Journalizer Export"),
+      escapeText(`Exported: ${new Date().toISOString().split("T")[0]}`),
+      escapeText(`Total entries: ${entries.length}`),
       "",
     ],
   });
@@ -182,7 +182,7 @@ export function generatePdfWithImages(entries: ExportEntry[]): Uint8Array {
     const entryLabel = entry.entryType === "digest" ? "Daily Entry" : entry.entryType;
     contentBlocks.push({
       type: "text",
-      lines: [`--- ${entry.entryDate} (${entryLabel}) ---`],
+      lines: [escapeText(`--- ${entry.entryDate} (${entryLabel}) ---`)],
     });
 
     // Entry content
@@ -239,7 +239,7 @@ export function generatePdfWithImages(entries: ExportEntry[]): Uint8Array {
           currentPage = { textCommands: [], images: [] };
           yPos = pageHeight - margin;
         }
-        currentPage.textCommands.push(`${margin} ${yPos} Td (${line}) Tj`);
+        currentPage.textCommands.push(`1 0 0 1 ${margin} ${yPos} Tm (${line}) Tj`);
         yPos -= leading;
       }
     } else if (block.type === "image" && block.imageData && block.width && block.height) {
@@ -269,7 +269,7 @@ export function generatePdfWithImages(entries: ExportEntry[]): Uint8Array {
   }
 
   if (pages.length === 0) {
-    pages.push({ textCommands: [`${margin} ${pageHeight - margin} Td (Empty export) Tj`], images: [] });
+    pages.push({ textCommands: [`1 0 0 1 ${margin} ${pageHeight - margin} Tm (Empty export) Tj`], images: [] });
   }
 
   // Build PDF with images as XObjects
@@ -285,12 +285,24 @@ function escapeText(text: string): string {
 
 function wrapText(text: string, maxLen: number): string[] {
   const lines: string[] = [];
-  for (const line of text.split("\n")) {
-    if (line.length <= maxLen) {
-      lines.push(line);
+  for (const paragraph of text.split("\n")) {
+    if (paragraph.length <= maxLen) {
+      lines.push(paragraph);
     } else {
-      for (let i = 0; i < line.length; i += maxLen) {
-        lines.push(line.slice(i, i + maxLen));
+      const words = paragraph.split(" ");
+      let current = "";
+      for (const word of words) {
+        if (current.length === 0) {
+          current = word;
+        } else if (current.length + 1 + word.length <= maxLen) {
+          current += " " + word;
+        } else {
+          lines.push(current);
+          current = word;
+        }
+      }
+      if (current.length > 0) {
+        lines.push(current);
       }
     }
   }
