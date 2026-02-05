@@ -99,7 +99,7 @@ export default function EntryView() {
         <article
           className={`rounded-lg border p-6 ${
             isDigest
-              ? "border-purple-200 bg-purple-50/30"
+              ? "border-blue-200 bg-blue-50/30"
               : "border-gray-200 bg-white"
           }`}
         >
@@ -109,8 +109,8 @@ export default function EntryView() {
             </time>
             <div className="flex items-center gap-2">
               {isDigest ? (
-                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                  Daily Digest
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                  Daily Entry
                 </span>
               ) : (
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
@@ -244,12 +244,12 @@ export default function EntryView() {
           )}
           {/* Source entries for digests */}
           {isDigest && (
-            <div className="mt-4 border-t border-purple-100 pt-4">
+            <div className="mt-4 border-t border-blue-100 pt-4">
               <button
                 onClick={() => setShowSources((v) => !v)}
-                className="text-sm font-medium text-purple-600 hover:text-purple-800"
+                className="text-sm font-medium text-blue-600 hover:text-blue-800"
               >
-                {showSources ? "Hide source entries" : "View source entries"}
+                {showSources ? "Hide individual entries" : "View individual entries"}
               </button>
               {showSources && (
                 <div className="mt-3 space-y-3">

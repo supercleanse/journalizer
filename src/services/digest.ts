@@ -14,13 +14,13 @@ import {
 
 const VOICE_INSTRUCTIONS: Record<VoiceStyle, string> = {
   natural:
-    "Keep the raw, authentic feel. Minimal smoothing — just combine the entries naturally.",
+    "Keep it raw and authentic. Minimal smoothing — just merge the entries together naturally.",
   conversational:
     "Keep it casual and flowing, like telling a friend about the day.",
   reflective:
     "Add gentle structure and flow. Slightly more thoughtful, introspective tone.",
   polished:
-    "Create a well-written, readable narrative. Preserve vocabulary and meaning but elevate the prose.",
+    "Smooth prose that flows well. Preserve vocabulary and meaning but elevate the writing.",
 };
 
 function buildDigestPrompt(
@@ -34,25 +34,27 @@ function buildDigestPrompt(
     day: "numeric",
     year: "numeric",
   });
-  return `You are combining the author's journal entries from ${formatted} into a single day entry.
+  return `You are combining the author's journal entries from ${formatted} into one flowing daily entry.
 
-The author captured small moments throughout their day — quick voice memos, texts, photos. Your job is to combine these fragments into one journal entry that reads as if the author sat down and wrote about their day themselves.
+The author captured moments throughout their day — voice memos, texts, photos, quick notes. Your job is to MERGE these into one continuous journal entry, preserving ALL the details from every entry.
+
+This is NOT a summary or synopsis. Do NOT condense, omit details, or generalize. Every specific detail, name, place, thought, and event from the source entries should appear in the combined entry. You are essentially concatenating and smoothing, not summarizing.
 
 Critical rules:
-- Write in FIRST PERSON. You ARE the author. Say "I", "we", "my" — never "the author", "they", or "the family"
-- Match the author's actual voice from the source entries. Use their vocabulary, sentence patterns, and tone
-- Do NOT narrate or summarize from the outside. This is not a report about someone's day — it IS their journal entry
-- Do NOT add literary flourishes, topic sentences, or transitions like "The day began with..." or "Today was a day of..."
-- Do NOT editorialize emotions the author didn't express (e.g., don't add "it was bittersweet" unless they said that)
-- Maintain chronological flow but keep it natural — the way someone would actually write about their day
-- Preserve specific names, details, places, and the author's personality
+- PRESERVE ALL DETAILS. If an entry mentions Jersey Mike's chicken Philly, that detail stays. If they mention a pancake machine, include it. Nothing gets cut.
+- Write in FIRST PERSON as the author. Say "I", "we", "my" — never "the author", "they", or "the family"
+- Match the author's actual voice. Use their vocabulary, sentence patterns, and tone from the source entries
+- Do NOT summarize or condense. The combined entry should be roughly as long as all source entries combined
+- Do NOT add narrator transitions like "The day began with..." or "Later that evening..."
+- Do NOT editorialize or add emotions/observations the author didn't express
+- Maintain chronological flow with natural transitions between moments
 - Voice style: ${voiceStyle} — ${VOICE_INSTRUCTIONS[voiceStyle]}
 ${voiceNotes ? `- Author's voice notes: "${voiceNotes}"` : ""}
-- If entries include audio/video transcriptions, use the content naturally as if the author wrote it
-- For photo-only entries (no text), you may briefly mention what was captured or skip
-- Write as continuous prose, not bullet points or sections
+- For audio/video transcriptions, include the content as if the author wrote it
+- For photo-only entries (no text), briefly note the photo was taken or skip if no context
+- Write as continuous prose, not bullet points
 
-Return ONLY the combined journal entry. No preamble, explanations, titles, or metadata.`;
+Return ONLY the combined journal entry. No preamble, titles, or explanations.`;
 }
 
 export interface DigestEntry {
@@ -201,7 +203,7 @@ export async function generateDailyDigest(
     if (user.telegramChatId && sendNotification) {
       await sendNotification(
         user.telegramChatId,
-        `Your daily digest for ${date} is ready!`
+        `Your daily entry for ${date} is ready!`
       ).catch(() => {});
     }
   } catch (error) {
