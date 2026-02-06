@@ -1,0 +1,35 @@
+=== Glass Unit ===
+id: routes.emailRoutes
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: REST API routes for managing recurring email subscriptions. Users can create, update, and delete subscriptions that deliver journal PDFs on a recurring schedule.
+source:
+  kind: prd
+  reference: "Recurring PDF Email Feature Plan"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated (JWT via authMiddleware)"
+  - "Valid subscription data for create/update operations"
+guarantees:
+  on_success:
+    - "GET /subscriptions lists user's email subscriptions"
+    - "POST /subscriptions creates a new email subscription with frequency, entryTypes, includeImages"
+    - "PUT /subscriptions/:id updates an existing subscription"
+    - "DELETE /subscriptions/:id deactivates a subscription (soft delete via isActive=0)"
+  on_failure:
+    - "ValidationError for invalid frequency or entryTypes"
+    - "EmailSubscriptionNotFound for missing subscriptions"
+invariants:
+  - "Users can only access their own subscriptions"
+  - "Frequency must be weekly, monthly, quarterly, or yearly"
+  - "entryTypes must be daily, individual, or both"
+fails:
+  ValidationError: "Return 400 with validation details"
+  EmailSubscriptionNotFound: "Return 404"

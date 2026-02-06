@@ -134,6 +134,44 @@ export const digestEntries = sqliteTable(
   ]
 );
 
+export const personalDictionary = sqliteTable(
+  "personal_dictionary",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    term: text("term").notNull(),
+    category: text("category").default("other"), // person, place, brand, pet, other
+    autoExtracted: integer("auto_extracted").default(0),
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_dict_user").on(table.userId),
+  ]
+);
+
+export const emailSubscriptions = sqliteTable(
+  "email_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    frequency: text("frequency").notNull(), // weekly | monthly | quarterly | yearly
+    entryTypes: text("entry_types").default("both"), // daily | individual | both
+    isActive: integer("is_active").default(1),
+    includeImages: integer("include_images").default(1),
+    nextEmailDate: text("next_email_date"),
+    lastEmailedAt: text("last_emailed_at"),
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_email_subs_user").on(table.userId),
+  ]
+);
+
 export const printSubscriptions = sqliteTable(
   "print_subscriptions",
   {

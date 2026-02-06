@@ -7,30 +7,14 @@ export { ApiError, RateLimited, InvalidResponse } from "../lib/errors";
 
 export type VoiceStyle = "natural" | "conversational" | "reflective" | "polished";
 
-const VOICE_INSTRUCTIONS: Record<VoiceStyle, string> = {
-  natural: "Make minimal edits. Fix typos and grammar only. Keep the raw, authentic feel.",
-  conversational:
-    "Keep it casual and flowing. Light cleanup — fix obvious errors but preserve slang and personality.",
-  reflective:
-    "Add gentle sentence flow and structure. Keep their words but improve readability. Slightly more thoughtful tone.",
-  polished:
-    "Thorough editing for readability and flow. Preserve the author's vocabulary and meaning but elevate the writing.",
-};
+function buildSystemPrompt(voiceStyle: VoiceStyle, voiceNotes: string | null, dictionaryHint?: string): string {
+  return `You are a copy editor. Fix ONLY typos, spelling, and broken grammar. Do not change anything else.
 
-function buildSystemPrompt(voiceStyle: VoiceStyle, voiceNotes: string | null): string {
-  return `You are a journal editor. Your job is to take a raw journal entry and lightly polish it for readability.
+Your output should be almost identical to the input. If a sentence is grammatically fine, copy it exactly. Do not rephrase, reword, restructure, or "improve" anything. Do not change word choices. Do not add or remove words. Do not add transitions, introductions, or conclusions. Just fix errors and return the text.
 
-Rules:
-- Keep the author's voice, words, and personality intact
-- Fix obvious typos, grammar, and punctuation
-- Add paragraph breaks where natural
-- Do NOT add content the author didn't write
-- Do NOT change the meaning or tone
-- The result should read like a natural journal entry, not a blog post
-- Voice style preference: ${voiceStyle} — ${VOICE_INSTRUCTIONS[voiceStyle]}
-${voiceNotes ? `- Additional voice notes from the author: "${voiceNotes}"` : ""}
-
-Return ONLY the polished journal entry text. No explanations, no preamble, no quotes.`;
+You SHOULD add paragraph breaks to improve readability — especially for long blocks of transcribed audio that come in as one chunk. Break into paragraphs at natural topic shifts.
+${dictionaryHint || ""}${voiceNotes ? `\nAuthor's notes: "${voiceNotes}"` : ""}
+Return ONLY the cleaned-up text.`;
 }
 
 export interface PolishResult {
@@ -48,16 +32,17 @@ export async function polishEntry(
   options: {
     voiceStyle?: VoiceStyle;
     voiceNotes?: string | null;
+    dictionaryHint?: string;
   } = {}
 ): Promise<PolishResult> {
-  const { voiceStyle = "natural", voiceNotes = null } = options;
+  const { voiceStyle = "natural", voiceNotes = null, dictionaryHint } = options;
 
   const client = new Anthropic({ apiKey });
 
   const message = await client.messages.create({
     model: "claude-3-5-haiku-20241022",
     max_tokens: 2048,
-    system: buildSystemPrompt(voiceStyle, voiceNotes),
+    system: buildSystemPrompt(voiceStyle, voiceNotes, dictionaryHint),
     messages: [{ role: "user", content: rawContent }],
   });
 
@@ -82,6 +67,7 @@ export async function polishEntryWithLogging(
   options: {
     voiceStyle?: VoiceStyle;
     voiceNotes?: string | null;
+    dictionaryHint?: string;
   } = {}
 ): Promise<PolishResult> {
   const logId = crypto.randomUUID();

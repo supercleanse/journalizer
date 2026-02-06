@@ -4,7 +4,7 @@ version: 0.1.0
 language: typescript
 
 === Intent ===
-purpose: Generate daily digest entries that summarize all journal entries for a given day into a cohesive narrative. Single-entry days use content as-is (no AI call); multi-entry days use Claude Haiku to weave entries into a chronological narrative respecting the user's voice style.
+purpose: Combine daily journal entries using the author's direct words. Single-entry days use content as-is (no AI call); multi-entry days use Claude Haiku to stitch entries together with minimal bridging, preserving the author's exact phrasing and only cleaning up grammar enough to flow.
 source:
   kind: conversation
   reference: "User request — daily digest feature for journal book preparation"
@@ -21,7 +21,7 @@ requires:
 guarantees:
   on_success:
     - "Single-entry days produce a digest using the entry's content directly (no AI call)"
-    - "Multi-entry days produce an AI-generated chronological narrative"
+    - "Multi-entry days stitch entries together using the author's direct words with minimal bridging"
     - "Voice style preference (natural/conversational/reflective/polished) is respected"
     - "Custom voice notes are incorporated into the digest prompt"
     - "Digest entry created with entryType=digest, source=system"

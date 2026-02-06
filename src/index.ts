@@ -13,9 +13,11 @@ import settingsRoutes from "./routes/settings";
 import remindersRoutes from "./routes/reminders";
 import exportRoutes from "./routes/exportRoutes";
 import printRoutes from "./routes/printRoutes";
+import emailRoutes from "./routes/emailRoutes";
 import webhooksRoutes from "./routes/webhooks";
 import { handleCron } from "./services/reminders";
 import { handlePrintScheduler } from "./services/printScheduler";
+import { handleEmailScheduler } from "./services/emailScheduler";
 import type { Env } from "./types/env";
 
 const app = new Hono<AppContext>();
@@ -57,6 +59,7 @@ app.route("/api/settings", settingsRoutes);
 app.route("/api/reminders", remindersRoutes);
 app.route("/api/export", exportRoutes);
 app.route("/api/print", printRoutes);
+app.route("/api/email", emailRoutes);
 
 // Serve frontend SPA for all non-API routes
 app.get("*", async (c) => {
@@ -83,5 +86,6 @@ export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(handleCron(env));
     ctx.waitUntil(handlePrintScheduler(env));
+    ctx.waitUntil(handleEmailScheduler(env));
   },
 };

@@ -2,8 +2,16 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
-import { getUserById, updateUser } from "../db/queries";
+import {
+  getUserById,
+  updateUser,
+  listDictionaryTerms,
+  addDictionaryTerm,
+  deleteDictionaryTerm,
+  listEntries,
+} from "../db/queries";
 import { ValidationError } from "../lib/errors";
+import { extractProperNouns } from "../services/dictionary";
 
 // Glass contract: failure modes
 export { ValidationError, UserNotFound, RateLimited } from "../lib/errors";
@@ -121,6 +129,97 @@ settings.post("/unlink-telegram", async (c) => {
   await updateUser(db, userId, { telegramChatId: null });
 
   return c.json({ success: true });
+});
+
+// ── Personal Dictionary ─────────────────────────────────────────────
+
+// GET /api/settings/dictionary — list user's dictionary terms
+settings.get("/dictionary", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+  const terms = await listDictionaryTerms(db, userId);
+  return c.json({ terms });
+});
+
+const addTermSchema = z.object({
+  term: z.string().min(1).max(200),
+  category: z.enum(["person", "place", "brand", "pet", "other"]).default("other"),
+});
+
+// POST /api/settings/dictionary — add a term
+settings.post("/dictionary", async (c) => {
+  const userId = c.get("userId");
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const parsed = addTermSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError("Validation failed");
+  }
+
+  const db = createDb(c.env.DB);
+  const id = crypto.randomUUID();
+  await addDictionaryTerm(db, {
+    id,
+    userId,
+    term: parsed.data.term.trim(),
+    category: parsed.data.category,
+    autoExtracted: 0,
+  });
+
+  return c.json({ id, term: parsed.data.term.trim(), category: parsed.data.category }, 201);
+});
+
+// DELETE /api/settings/dictionary/:id — remove a term
+settings.delete("/dictionary/:id", async (c) => {
+  const userId = c.get("userId");
+  const termId = c.req.param("id");
+  const db = createDb(c.env.DB);
+
+  await deleteDictionaryTerm(db, termId, userId);
+  return c.json({ success: true });
+});
+
+// POST /api/settings/extract-dictionary — auto-extract proper nouns from existing entries
+settings.post("/extract-dictionary", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+
+  const user = await getUserById(db, userId);
+  if (!user || user.role !== "admin") {
+    return c.json({ error: "Admin access required" }, 403);
+  }
+
+  // Fetch all non-digest entries for this user
+  const result = await listEntries(db, userId, { limit: 1000, excludeType: "digest" });
+  let extracted = 0;
+
+  for (const entry of result.entries) {
+    const text = entry.rawContent || entry.polishedContent;
+    if (!text || text.trim().length < 10) continue;
+
+    try {
+      const nouns = await extractProperNouns(c.env.ANTHROPIC_API_KEY, text);
+      for (const noun of nouns) {
+        await addDictionaryTerm(db, {
+          id: crypto.randomUUID(),
+          userId,
+          term: noun.term,
+          category: noun.category,
+          autoExtracted: 1,
+        });
+        extracted++;
+      }
+    } catch {
+      // Skip entries that fail extraction
+    }
+  }
+
+  return c.json({ success: true, entriesScanned: result.entries.length, termsExtracted: extracted });
 });
 
 export default settings;

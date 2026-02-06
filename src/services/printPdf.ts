@@ -239,7 +239,7 @@ export function generateInteriorPdf(
 
     let headerText: string;
     if (entry.entryType === "digest") {
-      headerText = `${formatDate(entry.entryDate)} (Daily Entry)`;
+      headerText = `${formatDate(entry.entryDate)} (Daily Combined Entry)`;
     } else {
       const dateTime = entry.createdAt
         ? formatDateTime(entry.createdAt, options.timezone)

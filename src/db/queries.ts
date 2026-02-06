@@ -9,6 +9,8 @@ import {
   digestEntries,
   printSubscriptions,
   printOrders,
+  personalDictionary,
+  emailSubscriptions,
 } from "./schema";
 
 // Glass contract: failure modes (soft failures return null)
@@ -809,6 +811,97 @@ export async function updatePrintOrder(
     .set({ ...data, updatedAt: sql`(datetime('now'))` })
     .where(eq(printOrders.id, id));
   return getPrintOrderById(db, id);
+}
+
+// ── Personal Dictionary ─────────────────────────────────────────────
+
+export async function listDictionaryTerms(db: Database, userId: string) {
+  return db
+    .select()
+    .from(personalDictionary)
+    .where(eq(personalDictionary.userId, userId))
+    .orderBy(personalDictionary.term);
+}
+
+export async function addDictionaryTerm(
+  db: Database,
+  data: { id: string; userId: string; term: string; category?: string; autoExtracted?: number }
+) {
+  await db
+    .insert(personalDictionary)
+    .values(data)
+    .onConflictDoNothing();
+}
+
+export async function deleteDictionaryTerm(db: Database, id: string, userId: string) {
+  await db
+    .delete(personalDictionary)
+    .where(and(eq(personalDictionary.id, id), eq(personalDictionary.userId, userId)));
+}
+
+// ── Email Subscriptions ──────────────────────────────────────────────
+
+export async function listEmailSubscriptions(db: Database, userId: string) {
+  return db
+    .select()
+    .from(emailSubscriptions)
+    .where(
+      and(
+        eq(emailSubscriptions.userId, userId),
+        eq(emailSubscriptions.isActive, 1)
+      )
+    );
+}
+
+export async function getEmailSubscriptionById(db: Database, id: string, userId: string) {
+  const result = await db
+    .select()
+    .from(emailSubscriptions)
+    .where(and(eq(emailSubscriptions.id, id), eq(emailSubscriptions.userId, userId)))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function createEmailSubscription(
+  db: Database,
+  data: {
+    id: string;
+    userId: string;
+    frequency: string;
+    entryTypes?: string;
+    includeImages?: number;
+    nextEmailDate?: string;
+  }
+) {
+  await db.insert(emailSubscriptions).values(data);
+  return getEmailSubscriptionById(db, data.id, data.userId);
+}
+
+export async function updateEmailSubscription(
+  db: Database,
+  id: string,
+  userId: string,
+  data: Partial<{
+    frequency: string;
+    entryTypes: string;
+    isActive: number;
+    includeImages: number;
+    nextEmailDate: string;
+    lastEmailedAt: string;
+  }>
+) {
+  await db
+    .update(emailSubscriptions)
+    .set({ ...data, updatedAt: sql`(datetime('now'))` })
+    .where(and(eq(emailSubscriptions.id, id), eq(emailSubscriptions.userId, userId)));
+  return getEmailSubscriptionById(db, id, userId);
+}
+
+export async function getActiveEmailSubscriptions(db: Database) {
+  return db
+    .select()
+    .from(emailSubscriptions)
+    .where(eq(emailSubscriptions.isActive, 1));
 }
 
 // ── Processing Log ──────────────────────────────────────────────────

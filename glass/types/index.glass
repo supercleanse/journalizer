@@ -21,6 +21,7 @@ guarantees:
     - "User, Entry, MediaAttachment, Reminder, PaginatedResponse, AuthUser interfaces"
     - "PrintSubscription interface: id, frequency, shipping fields, colorOption, includeImages"
     - "PrintOrder interface: id, status, frequency, periodStart, periodEnd, costCents, retailCents"
+    - "DictionaryTerm interface: id, term, category, autoExtracted, createdAt"
   on_failure:
     - "Type mismatches caught at compile time"
 invariants:

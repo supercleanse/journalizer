@@ -12,17 +12,6 @@ import {
   updateUserLastDigestDate,
 } from "../db/queries";
 
-const VOICE_INSTRUCTIONS: Record<VoiceStyle, string> = {
-  natural:
-    "Keep it raw and authentic. Minimal smoothing — just merge the entries together naturally.",
-  conversational:
-    "Keep it casual and flowing, like telling a friend about the day.",
-  reflective:
-    "Add gentle structure and flow. Slightly more thoughtful, introspective tone.",
-  polished:
-    "Smooth prose that flows well. Preserve vocabulary and meaning but elevate the writing.",
-};
-
 function buildDigestPrompt(
   voiceStyle: VoiceStyle,
   voiceNotes: string | null,
@@ -34,27 +23,28 @@ function buildDigestPrompt(
     day: "numeric",
     year: "numeric",
   });
-  return `You are combining the author's journal entries from ${formatted} into one flowing daily entry.
+  return `Combine the author's journal entries from ${formatted} into one entry. Use the author's own words.
 
-The author captured moments throughout their day — voice memos, texts, photos, quick notes. Your job is to MERGE these into one continuous journal entry, preserving ALL the details from every entry.
+How to do this:
+1. Put the entries in chronological order.
+2. Copy the author's sentences as-is. Fix typos and grammar only.
+3. Separate entries with a paragraph break. Do not add transition sentences.
+4. If an entry is a transcription, include it as if the author wrote it.
+5. Skip photo-only entries with no text.
 
-This is NOT a summary or synopsis. Do NOT condense, omit details, or generalize. Every specific detail, name, place, thought, and event from the source entries should appear in the combined entry. You are essentially concatenating and smoothing, not summarizing.
+Do NOT:
+- Rewrite, rephrase, or paraphrase any of the author's words
+- Add transitions like "The day began with..." or "Later that evening..."
+- Add introductory or concluding sentences
+- Change word choices (keep "got", "stuff", "kid", etc. exactly as written)
+- Summarize or condense — the output should be about the same length as all inputs combined
+- Add any observations or commentary the author didn't write
 
-Critical rules:
-- PRESERVE ALL DETAILS. If an entry mentions Jersey Mike's chicken Philly, that detail stays. If they mention a pancake machine, include it. Nothing gets cut.
-- Write in FIRST PERSON as the author. Say "I", "we", "my" — never "the author", "they", or "the family"
-- Match the author's actual voice. Use their vocabulary, sentence patterns, and tone from the source entries
-- Do NOT summarize or condense. The combined entry should be roughly as long as all source entries combined
-- Do NOT add narrator transitions like "The day began with..." or "Later that evening..."
-- Do NOT editorialize or add emotions/observations the author didn't express
-- Maintain chronological flow with natural transitions between moments
-- Voice style: ${voiceStyle} — ${VOICE_INSTRUCTIONS[voiceStyle]}
-${voiceNotes ? `- Author's voice notes: "${voiceNotes}"` : ""}
-- For audio/video transcriptions, include the content as if the author wrote it
-- For photo-only entries (no text), briefly note the photo was taken or skip if no context
-- Write as continuous prose, not bullet points
+You SHOULD add paragraph breaks to improve readability — especially for long blocks of transcribed audio. Break into paragraphs at natural topic shifts.
 
-Return ONLY the combined journal entry. No preamble, titles, or explanations.`;
+The result should read like the author's entries pasted together with good paragraph formatting, with typos fixed. That's it.
+${voiceNotes ? `\nAuthor's notes: "${voiceNotes}"` : ""}
+Return ONLY the combined entry text. No preamble or titles.`;
 }
 
 export interface DigestEntry {
@@ -81,7 +71,7 @@ function formatEntriesForPrompt(entries: DigestEntry[]): string {
             hour12: true,
           })
         : `Entry ${i + 1}`;
-      const content = e.polishedContent || e.rawContent || "";
+      const content = e.rawContent || e.polishedContent || "";
       const transcription = e.media
         ?.map((m) => m.transcription)
         .filter(Boolean)

@@ -25,60 +25,7 @@ import { chargeCustomer, refundPayment } from "./stripe";
 // Glass contract: failure modes
 export { LuluAPIError, StripeAPIError, PaymentFailed } from "../lib/errors";
 
-// ── Period Calculation ──────────────────────────────────────────────
-
-function calculatePeriodDates(
-  frequency: string,
-  fromDate: string
-): { start: string; end: string } {
-  const from = new Date(fromDate + "T00:00:00Z");
-
-  switch (frequency) {
-    case "weekly": {
-      const start = new Date(from);
-      const end = new Date(from);
-      end.setUTCDate(end.getUTCDate() + 6);
-      return { start: formatDateStr(start), end: formatDateStr(end) };
-    }
-    case "monthly": {
-      const start = new Date(from);
-      // End = day before the same date next month (handles month boundaries safely)
-      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, start.getUTCDate()));
-      end.setUTCDate(end.getUTCDate() - 1);
-      return { start: formatDateStr(start), end: formatDateStr(end) };
-    }
-    case "quarterly": {
-      const start = new Date(from);
-      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 3, start.getUTCDate()));
-      end.setUTCDate(end.getUTCDate() - 1);
-      return { start: formatDateStr(start), end: formatDateStr(end) };
-    }
-    case "yearly": {
-      const start = new Date(from);
-      const end = new Date(Date.UTC(start.getUTCFullYear() + 1, start.getUTCMonth(), start.getUTCDate()));
-      end.setUTCDate(end.getUTCDate() - 1);
-      return { start: formatDateStr(start), end: formatDateStr(end) };
-    }
-    default:
-      return { start: fromDate, end: fromDate };
-  }
-}
-
-function getNextPrintDate(frequency: string, currentEnd: string): string {
-  const end = new Date(currentEnd + "T00:00:00Z");
-  end.setUTCDate(end.getUTCDate() + 1);
-  return formatDateStr(end);
-}
-
-function formatDateStr(d: Date): string {
-  return d.toISOString().split("T")[0];
-}
-
-function isDue(nextPrintDate: string | null): boolean {
-  if (!nextPrintDate) return false;
-  const today = new Date().toISOString().split("T")[0];
-  return nextPrintDate <= today;
-}
+import { calculatePeriodDates, getNextDate as getNextPrintDate, isDue } from "../lib/period";
 
 // ── Main Scheduler ──────────────────────────────────────────────────
 

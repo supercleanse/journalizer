@@ -7,9 +7,9 @@ import {
 import toast from "react-hot-toast";
 import Header from "../components/Header";
 import ExportForm from "../components/ExportForm";
-import PrintSubscriptionForm from "../components/PrintSubscriptionForm";
+import EmailSubscriptionForm from "../components/EmailSubscriptionForm";
 import { api } from "../lib/api";
-import type { User, Reminder } from "../types";
+import type { User, Reminder, DictionaryTerm } from "../types";
 
 const voiceStyles = [
   { value: "natural", label: "Natural" },
@@ -252,6 +252,53 @@ export default function Settings() {
     onError: () => toast.error("Failed to unlink Telegram"),
   });
 
+  // ── Personal Dictionary ──
+  const { data: dictionaryData } = useQuery({
+    queryKey: ["dictionary"],
+    queryFn: () =>
+      api.get<{ terms: DictionaryTerm[] }>("/api/settings/dictionary"),
+  });
+
+  const dictTerms = dictionaryData?.terms ?? [];
+
+  const [newTerm, setNewTerm] = useState("");
+  const [newTermCategory, setNewTermCategory] = useState("other");
+
+  const addTermMutation = useMutation({
+    mutationFn: (data: { term: string; category: string }) =>
+      api.post("/api/settings/dictionary", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dictionary"] });
+      setNewTerm("");
+      toast.success("Term added");
+    },
+    onError: () => toast.error("Failed to add term"),
+  });
+
+  const deleteTermMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/settings/dictionary/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dictionary"] });
+      toast.success("Term removed");
+    },
+    onError: () => toast.error("Failed to remove term"),
+  });
+
+  const extractMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ entriesScanned: number; termsExtracted: number }>(
+        "/api/settings/extract-dictionary",
+        {}
+      ),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["dictionary"] });
+      toast.success(
+        `Scanned ${data.entriesScanned} entries, extracted ${data.termsExtracted} terms`
+      );
+    },
+    onError: () => toast.error("Failed to extract dictionary"),
+  });
+
   // ── Reminders ──
   const { data: remindersData } = useQuery({
     queryKey: ["reminders"],
@@ -450,6 +497,104 @@ export default function Settings() {
           )}
         </div>
 
+        {/* Personal Dictionary */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-1 text-lg font-medium text-gray-900">
+            Personal Dictionary
+          </h2>
+          <p className="mb-4 text-sm text-gray-500">
+            These words help improve transcription accuracy for voice entries.
+          </p>
+
+          {/* Existing terms as chips */}
+          {dictTerms.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {dictTerms.map((t) => {
+                const colors: Record<string, string> = {
+                  person: "bg-blue-50 text-blue-700 border-blue-200",
+                  place: "bg-green-50 text-green-700 border-green-200",
+                  brand: "bg-purple-50 text-purple-700 border-purple-200",
+                  pet: "bg-amber-50 text-amber-700 border-amber-200",
+                  other: "bg-gray-50 text-gray-700 border-gray-200",
+                };
+                const colorClass = colors[t.category] || colors.other;
+                return (
+                  <span
+                    key={t.id}
+                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm ${colorClass}`}
+                  >
+                    {t.term}
+                    <button
+                      type="button"
+                      onClick={() => deleteTermMutation.mutate(t.id)}
+                      className="ml-0.5 text-current opacity-50 hover:opacity-100"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Add new term */}
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="text"
+              value={newTerm}
+              onChange={(e) => setNewTerm(e.target.value)}
+              placeholder="Add a name or word..."
+              className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newTerm.trim()) {
+                  e.preventDefault();
+                  addTermMutation.mutate({ term: newTerm.trim(), category: newTermCategory });
+                }
+              }}
+            />
+            <select
+              value={newTermCategory}
+              onChange={(e) => setNewTermCategory(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+            >
+              <option value="person">Person</option>
+              <option value="place">Place</option>
+              <option value="brand">Brand</option>
+              <option value="pet">Pet</option>
+              <option value="other">Other</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                if (newTerm.trim()) {
+                  addTermMutation.mutate({ term: newTerm.trim(), category: newTermCategory });
+                }
+              }}
+              disabled={!newTerm.trim() || addTermMutation.isPending}
+              className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Auto-extract button */}
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              onClick={() => extractMutation.mutate()}
+              disabled={extractMutation.isPending}
+              className="rounded-md border border-gray-300 px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {extractMutation.isPending
+                ? "Extracting..."
+                : "Auto-extract from entries"}
+            </button>
+            <p className="mt-1 text-xs text-gray-400">
+              Scans your existing entries for names, places, and other proper nouns.
+            </p>
+          </div>
+        </div>
+
         {/* Reminders */}
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-lg font-medium text-gray-900">
@@ -637,15 +782,15 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Physical Journal */}
+        {/* Email Reports */}
         <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-medium text-gray-900">
-            Physical Journal
+          <h2 className="mb-1 text-lg font-medium text-gray-900">
+            Email Reports
           </h2>
-          <p className="mb-3 text-sm text-gray-500">
-            Get a printed copy of your journal delivered to your door.
+          <p className="mb-4 text-sm text-gray-500">
+            Receive a PDF of your journal entries on a recurring schedule.
           </p>
-          <PrintSubscriptionForm />
+          <EmailSubscriptionForm />
         </div>
 
         {/* Export Data */}

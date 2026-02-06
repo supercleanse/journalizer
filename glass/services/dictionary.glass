@@ -1,0 +1,31 @@
+=== Glass Unit ===
+id: services.dictionary
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Extract proper nouns from journal entries using Claude and manage a per-user personal dictionary. Dictionary terms are used to improve transcription accuracy (via Whisper initial_prompt) and polishing accuracy.
+source:
+  kind: conversation
+  reference: "User request — improve transcription accuracy for proper nouns"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "ANTHROPIC_API_KEY is configured"
+  - "Entry text is non-empty"
+guarantees:
+  on_success:
+    - "extractProperNouns returns array of {term, category} from entry text"
+    - "formatDictionaryPrompt returns a string suitable for Whisper initial_prompt (under 200 tokens)"
+    - "formatDictionaryForPolish returns a string for the polish system prompt"
+  on_failure:
+    - "Extraction errors are caught — do not block entry creation"
+invariants:
+  - "Extraction only identifies proper nouns, not common words"
+  - "Dictionary prompt stays under Whisper's ~224 token limit"
+fails:
+  ApiError: "Log and continue — dictionary extraction is best-effort"
