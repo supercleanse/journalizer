@@ -17,6 +17,7 @@ export interface ExportOptions {
 
 export interface PdfOptions {
   userName: string;
+  timezone: string;
   startDate?: string;
   endDate?: string;
 }
@@ -208,22 +209,37 @@ function formatDate(dateStr: string): string {
   return `${months[m]} ${d}, ${year}`;
 }
 
-/** Format ISO datetime as "January 15, 2026 at 3:45 PM" */
-function formatDateTime(isoStr: string): string {
+/** Format ISO datetime as "January 15, 2026 at 3:45 PM" in the given timezone */
+function formatDateTime(isoStr: string, timezone: string): string {
   const date = new Date(isoStr);
   if (isNaN(date.getTime())) return isoStr;
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-  ];
-  const month = months[date.getUTCMonth()];
-  const day = date.getUTCDate();
-  const year = date.getUTCFullYear();
-  let hours = date.getUTCHours();
-  const minutes = date.getUTCMinutes().toString().padStart(2, "0");
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  return `${month} ${day}, ${year} at ${hours}:${minutes} ${ampm}`;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).formatToParts(date);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+    return `${get("month")} ${get("day")}, ${get("year")} at ${get("hour")}:${get("minute")} ${get("dayPeriod")}`;
+  } catch {
+    // Fallback to UTC if timezone is invalid
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+    const month = months[date.getUTCMonth()];
+    const day = date.getUTCDate();
+    const year = date.getUTCFullYear();
+    let hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    return `${month} ${day}, ${year} at ${hours}:${minutes} ${ampm}`;
+  }
 }
 
 /** Capitalize source for display */
@@ -329,7 +345,7 @@ export function generatePdfWithImages(entries: ExportEntry[], options: PdfOption
       headerText = `${formatDate(entry.entryDate)} (Daily Entry)`;
     } else {
       const dateTime = entry.createdAt
-        ? formatDateTime(entry.createdAt)
+        ? formatDateTime(entry.createdAt, options.timezone)
         : formatDate(entry.entryDate);
       const source = formatSource(entry.source);
       headerText = `${dateTime} (via ${source})`;

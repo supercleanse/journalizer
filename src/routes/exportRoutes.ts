@@ -82,7 +82,8 @@ exportRoutes.get("/", async (c) => {
   }
 
   const today = new Date().toISOString().split("T")[0];
-  const pdfOptions = { userName, startDate, endDate };
+  const timezone = user?.timezone || "UTC";
+  const pdfOptions = { userName, timezone, startDate, endDate };
 
   // Determine output format
   if (includeMultimedia) {

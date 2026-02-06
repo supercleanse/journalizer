@@ -18,6 +18,7 @@ function makeEntry(overrides: Partial<ExportEntry> = {}): ExportEntry {
 
 const defaultOptions: PdfOptions = {
   userName: "Test User",
+  timezone: "America/Denver",
   startDate: undefined,
   endDate: undefined,
 };
@@ -48,14 +49,14 @@ describe("generatePdfWithImages", () => {
   });
 
   it("includes title page with user name", () => {
-    const result = generatePdfWithImages([makeEntry()], { userName: "Blair Williams", startDate: "2026-01-01", endDate: "2026-01-31" });
+    const result = generatePdfWithImages([makeEntry()], { userName: "Blair Williams", timezone: "America/Denver", startDate: "2026-01-01", endDate: "2026-01-31" });
     const text = new TextDecoder().decode(result);
     expect(text).toContain("Blair Williams");
     expect(text).toContain("Journal Export");
   });
 
   it("includes page numbers with user name", () => {
-    const result = generatePdfWithImages([makeEntry()], { userName: "Blair Williams" });
+    const result = generatePdfWithImages([makeEntry()], { userName: "Blair Williams", timezone: "America/Denver" });
     const text = new TextDecoder().decode(result);
     expect(text).toContain("Blair Williams - Page 1");
   });
