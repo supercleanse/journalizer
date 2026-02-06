@@ -9,7 +9,7 @@ import {
 import { fetchEntriesForExport, generatePdfWithImages } from "./export";
 import type { ExportOptions, PdfOptions } from "./export";
 import { sendEmail, uint8ArrayToBase64 } from "./email";
-import { calculatePeriodDates, getNextDate, isDue } from "../lib/period";
+import { getTrailingPeriod, advanceAlignedDate, isDue } from "../lib/period";
 
 // Glass contract: failure modes
 export { ResendAPIError } from "../lib/errors";
@@ -30,10 +30,8 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
     try {
       if (!isDue(sub.nextEmailDate)) continue;
 
-      // Ensure the full period has elapsed before sending
-      const { start, end } = calculatePeriodDates(sub.frequency, sub.nextEmailDate!);
-      const today = new Date().toISOString().split("T")[0];
-      if (end >= today) continue;
+      // Calculate the trailing period (e.g. Monday send = previous Mon-Sun)
+      const { start, end } = getTrailingPeriod(sub.frequency, sub.nextEmailDate!);
 
       const user = await getUserById(db, sub.userId);
       if (!user || !user.email) continue;
@@ -50,7 +48,7 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
       const entries = await fetchEntriesForExport(db, env, exportOptions);
 
       if (entries.length === 0) {
-        const nextDate = getNextDate(sub.frequency, end);
+        const nextDate = advanceAlignedDate(sub.frequency, sub.nextEmailDate!);
         await updateEmailSubscription(db, sub.id, sub.userId, {
           nextEmailDate: nextDate,
         });
@@ -101,7 +99,7 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
         ],
       });
 
-      const nextDate = getNextDate(sub.frequency, end);
+      const nextDate = advanceAlignedDate(sub.frequency, sub.nextEmailDate!);
       await updateEmailSubscription(db, sub.id, sub.userId, {
         nextEmailDate: nextDate,
         lastEmailedAt: new Date().toISOString(),

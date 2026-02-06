@@ -23,6 +23,7 @@ guarantees:
     - "POST /subscriptions creates a new email subscription with frequency, entryTypes, includeImages"
     - "PUT /subscriptions/:id updates an existing subscription"
     - "DELETE /subscriptions/:id deactivates a subscription (soft delete via isActive=0)"
+    - "POST /send-now sends an immediate email for the trailing period (last week/month/quarter/year)"
   on_failure:
     - "ValidationError for invalid frequency or entryTypes"
     - "EmailSubscriptionNotFound for missing subscriptions"

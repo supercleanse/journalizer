@@ -7,8 +7,13 @@ import {
   getEmailSubscriptionById,
   createEmailSubscription,
   updateEmailSubscription,
+  getUserById,
 } from "../db/queries";
 import { ValidationError, EmailSubscriptionNotFound } from "../lib/errors";
+import { fetchEntriesForExport, generatePdfWithImages } from "../services/export";
+import type { ExportOptions, PdfOptions } from "../services/export";
+import { sendEmail, uint8ArrayToBase64 } from "../services/email";
+import { formatDateStr, getAlignedSendDate } from "../lib/period";
 
 // Glass contract: failure modes
 export { ValidationError, EmailSubscriptionNotFound } from "../lib/errors";
@@ -48,7 +53,7 @@ emailRoutes.post("/subscriptions", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-  const today = new Date().toISOString().split("T")[0];
+  const nextEmailDate = getAlignedSendDate(parsed.data.frequency);
 
   const sub = await createEmailSubscription(db, {
     id: crypto.randomUUID(),
@@ -56,7 +61,7 @@ emailRoutes.post("/subscriptions", async (c) => {
     frequency: parsed.data.frequency,
     entryTypes: parsed.data.entryTypes,
     includeImages: parsed.data.includeImages ? 1 : 0,
-    nextEmailDate: today,
+    nextEmailDate,
   });
 
   return c.json({ subscription: sub }, 201);
@@ -111,6 +116,111 @@ emailRoutes.delete("/subscriptions/:id", async (c) => {
 
   await updateEmailSubscription(db, id, userId, { isActive: 0 });
   return c.json({ success: true });
+});
+
+// POST /api/email/send-now — send an immediate email for the trailing period
+const sendNowSchema = z.object({
+  period: z.enum(["weekly", "monthly", "quarterly", "yearly"]),
+});
+
+emailRoutes.post("/send-now", async (c) => {
+  const userId = c.get("userId");
+
+  if (!c.env.RESEND_API_KEY) {
+    throw new ValidationError("Email sending is not configured");
+  }
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new ValidationError("Invalid JSON body");
+  }
+
+  const parsed = sendNowSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError("Invalid period");
+  }
+
+  const db = createDb(c.env.DB);
+  const user = await getUserById(db, userId);
+  if (!user || !user.email) {
+    throw new ValidationError("No email address on account");
+  }
+
+  // Calculate trailing period ending yesterday
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const endDate = formatDateStr(yesterday);
+
+  const startDateObj = new Date(yesterday);
+  switch (parsed.data.period) {
+    case "weekly":
+      startDateObj.setUTCDate(startDateObj.getUTCDate() - 6);
+      break;
+    case "monthly":
+      startDateObj.setUTCMonth(startDateObj.getUTCMonth() - 1);
+      startDateObj.setUTCDate(startDateObj.getUTCDate() + 1);
+      break;
+    case "quarterly":
+      startDateObj.setUTCMonth(startDateObj.getUTCMonth() - 3);
+      startDateObj.setUTCDate(startDateObj.getUTCDate() + 1);
+      break;
+    case "yearly":
+      startDateObj.setUTCFullYear(startDateObj.getUTCFullYear() - 1);
+      startDateObj.setUTCDate(startDateObj.getUTCDate() + 1);
+      break;
+  }
+  const startDate = formatDateStr(startDateObj);
+
+  const exportOptions: ExportOptions = {
+    userId,
+    startDate,
+    endDate,
+    entryTypes: "both",
+    includeImages: true,
+    includeMultimedia: false,
+  };
+
+  const entries = await fetchEntriesForExport(db, c.env, exportOptions);
+
+  if (entries.length === 0) {
+    return c.json({ success: false, message: "No entries found for this period" }, 200);
+  }
+
+  const pdfOptions: PdfOptions = {
+    userName: user.displayName || "My Journal",
+    timezone: user.timezone || "UTC",
+    startDate,
+    endDate,
+  };
+
+  const pdfBytes = generatePdfWithImages(entries, pdfOptions);
+  const base64Pdf = uint8ArrayToBase64(pdfBytes);
+
+  const periodLabel = parsed.data.period.charAt(0).toUpperCase() + parsed.data.period.slice(1);
+  const fromEmail = c.env.RESEND_FROM_EMAIL || "Journalizer <noreply@journalizer.app>";
+
+  await sendEmail(c.env.RESEND_API_KEY, fromEmail, {
+    to: user.email,
+    subject: `Your ${periodLabel} Journal - ${startDate} to ${endDate}`,
+    html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h2 style="color: #1a1a1a;">Your ${periodLabel} Journal</h2>
+  <p style="color: #4a4a4a; line-height: 1.6;">
+    Your journal PDF for <strong>${startDate}</strong> through <strong>${endDate}</strong> is attached.
+    This export includes ${entries.length} ${entries.length === 1 ? "entry" : "entries"}.
+  </p>
+</div>`,
+    attachments: [
+      {
+        filename: `journal-${startDate}-to-${endDate}.pdf`,
+        content: base64Pdf,
+      },
+    ],
+  });
+
+  return c.json({ success: true, entryCount: entries.length, startDate, endDate });
 });
 
 export default emailRoutes;
