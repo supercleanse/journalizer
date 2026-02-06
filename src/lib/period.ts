@@ -18,13 +18,17 @@ export function calculatePeriodDates(
     }
     case "monthly": {
       const start = new Date(from);
-      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, start.getUTCDate()));
+      const lastDayOfNextMonth = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 2, 0)).getUTCDate();
+      const endDay = Math.min(start.getUTCDate(), lastDayOfNextMonth);
+      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, endDay));
       end.setUTCDate(end.getUTCDate() - 1);
       return { start: formatDateStr(start), end: formatDateStr(end) };
     }
     case "quarterly": {
       const start = new Date(from);
-      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 3, start.getUTCDate()));
+      const lastDayOfTargetMonth = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 4, 0)).getUTCDate();
+      const endDay = Math.min(start.getUTCDate(), lastDayOfTargetMonth);
+      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 3, endDay));
       end.setUTCDate(end.getUTCDate() - 1);
       return { start: formatDateStr(start), end: formatDateStr(end) };
     }

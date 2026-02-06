@@ -30,10 +30,13 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
     try {
       if (!isDue(sub.nextEmailDate)) continue;
 
+      // Ensure the full period has elapsed before sending
+      const { start, end } = calculatePeriodDates(sub.frequency, sub.nextEmailDate!);
+      const today = new Date().toISOString().split("T")[0];
+      if (end >= today) continue;
+
       const user = await getUserById(db, sub.userId);
       if (!user || !user.email) continue;
-
-      const { start, end } = calculatePeriodDates(sub.frequency, sub.nextEmailDate!);
 
       const exportOptions: ExportOptions = {
         userId: sub.userId,
@@ -152,6 +155,14 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function buildEmailHtml(
   name: string,
   frequency: string,
@@ -159,11 +170,12 @@ function buildEmailHtml(
   end: string,
   entryCount: number
 ): string {
+  const safeName = escapeHtml(name);
   return `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #1a1a1a;">Your ${frequency} Journal</h2>
+  <h2 style="color: #1a1a1a;">Your ${escapeHtml(frequency)} Journal</h2>
   <p style="color: #4a4a4a; line-height: 1.6;">
-    Hi ${name},
+    Hi ${safeName},
   </p>
   <p style="color: #4a4a4a; line-height: 1.6;">
     Your journal PDF for <strong>${formatDate(start)}</strong> through <strong>${formatDate(end)}</strong> is attached.

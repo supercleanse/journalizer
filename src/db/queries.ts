@@ -845,7 +845,12 @@ export async function listEmailSubscriptions(db: Database, userId: string) {
   return db
     .select()
     .from(emailSubscriptions)
-    .where(eq(emailSubscriptions.userId, userId));
+    .where(
+      and(
+        eq(emailSubscriptions.userId, userId),
+        eq(emailSubscriptions.isActive, 1)
+      )
+    );
 }
 
 export async function getEmailSubscriptionById(db: Database, id: string, userId: string) {

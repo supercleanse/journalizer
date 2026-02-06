@@ -32,6 +32,20 @@ describe("calculatePeriodDates", () => {
     expect(end).toBe("2026-12-31");
   });
 
+  it("clamps monthly period when start day exceeds next month length", () => {
+    // Jan 31 → Feb only has 28 days, should not overflow into March
+    const { start, end } = calculatePeriodDates("monthly", "2026-01-31");
+    expect(start).toBe("2026-01-31");
+    expect(end).toBe("2026-02-27");
+  });
+
+  it("clamps quarterly period for short months", () => {
+    // Nov 30 → target month is Feb which has 28 days
+    const { start, end } = calculatePeriodDates("quarterly", "2026-11-30");
+    expect(start).toBe("2026-11-30");
+    expect(end).toBe("2027-02-27");
+  });
+
   it("returns same date for unknown frequency", () => {
     const { start, end } = calculatePeriodDates("biweekly", "2026-01-01");
     expect(start).toBe("2026-01-01");
