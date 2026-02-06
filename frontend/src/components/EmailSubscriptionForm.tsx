@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 import { api } from "../lib/api";
 import type { EmailSubscription } from "../types";
 
+type Period = "weekly" | "monthly" | "quarterly" | "yearly";
+
 const frequencyLabels: Record<string, string> = {
   weekly: "Weekly",
   monthly: "Monthly",
@@ -60,6 +62,28 @@ export default function EmailSubscriptionForm() {
       toast.success("Subscription removed");
     },
     onError: () => toast.error("Failed to remove subscription"),
+  });
+
+  const [sendingPeriod, setSendingPeriod] = useState<Period | null>(null);
+  const sendNowMutation = useMutation({
+    mutationFn: (period: Period) =>
+      api.post<{ success: boolean; entryCount?: number; message?: string }>(
+        "/api/email/send-now",
+        { period }
+      ),
+    onMutate: (period) => setSendingPeriod(period),
+    onSuccess: (data) => {
+      setSendingPeriod(null);
+      if (data.success) {
+        toast.success(`Email sent with ${data.entryCount} entries`);
+      } else {
+        toast.error(data.message || "No entries found");
+      }
+    },
+    onError: () => {
+      setSendingPeriod(null);
+      toast.error("Failed to send email");
+    },
   });
 
   return (
@@ -173,6 +197,31 @@ export default function EmailSubscriptionForm() {
           >
             Add
           </button>
+        </div>
+      </div>
+
+      {/* Send Now */}
+      <div className="space-y-3 border-t border-gray-100 pt-4">
+        <p className="text-sm font-medium text-gray-600">Send Now</p>
+        <p className="text-xs text-gray-400">
+          Send an immediate email with entries from the trailing period.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {(["weekly", "monthly", "quarterly", "yearly"] as Period[]).map(
+            (period) => (
+              <button
+                key={period}
+                type="button"
+                onClick={() => sendNowMutation.mutate(period)}
+                disabled={sendNowMutation.isPending}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {sendingPeriod === period
+                  ? "Sending..."
+                  : `Last ${period === "weekly" ? "Week" : period === "monthly" ? "Month" : period === "quarterly" ? "Quarter" : "Year"}`}
+              </button>
+            )
+          )}
         </div>
       </div>
     </div>
