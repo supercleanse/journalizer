@@ -330,6 +330,22 @@ export class PrintSubscriptionNotFound extends AppError {
   }
 }
 
+// ── Email Errors ─────────────────────────────────────────────────────
+
+export class ResendAPIError extends AppError {
+  constructor(message = "Resend API error") {
+    super(502, "RESEND_API_ERROR", message);
+    this.name = "ResendAPIError";
+  }
+}
+
+export class EmailSubscriptionNotFound extends AppError {
+  constructor(message = "Email subscription not found") {
+    super(404, "EMAIL_SUBSCRIPTION_NOT_FOUND", message);
+    this.name = "EmailSubscriptionNotFound";
+  }
+}
+
 export function errorHandler(err: Error, c: Context<AppContext, string>) {
   if (err instanceof AppError) {
     return c.json(

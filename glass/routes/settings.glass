@@ -24,6 +24,10 @@ guarantees:
     - "Timezone validated against Intl.supportedValuesOf('timeZone') — rejects invalid IANA identifiers"
     - "POST /api/settings/link-telegram generates 8-char alphanumeric code stored in KV with 10-min TTL"
     - "POST /api/settings/unlink-telegram removes telegramChatId from user record"
+    - "GET /api/settings/dictionary returns user's personal dictionary terms"
+    - "POST /api/settings/dictionary adds a term to the dictionary"
+    - "DELETE /api/settings/dictionary/:id removes a term from the dictionary"
+    - "POST /api/settings/extract-dictionary auto-extracts proper nouns from existing entries (admin)"
     - "Linking code generation rate-limited to 5 per hour per user"
   on_failure:
     - "Invalid JSON body returns 400"

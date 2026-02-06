@@ -20,7 +20,8 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB (Telegram bot file limit)
 
 export async function transcribeAudio(
   ai: Ai,
-  audioData: ArrayBuffer
+  audioData: ArrayBuffer,
+  options?: { initialPrompt?: string }
 ): Promise<TranscriptionResult> {
   if (audioData.byteLength > MAX_AUDIO_BYTES) {
     throw new Error(
@@ -28,24 +29,50 @@ export async function transcribeAudio(
     );
   }
 
-  const audioArray = [...new Uint8Array(audioData)];
+  // whisper-large-v3-turbo requires base64 audio input
+  const bytes = new Uint8Array(audioData);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64Audio = btoa(binary);
 
-  const result = await ai.run("@cf/openai/whisper", {
-    audio: audioArray,
-  });
+  const input: Record<string, unknown> = {
+    audio: base64Audio,
+    language: "en",
+    vad_filter: true,
+  };
+  if (options?.initialPrompt) {
+    input.initial_prompt = options.initialPrompt;
+  }
 
-  if (!result.text || result.text.trim().length === 0) {
+  const result = await ai.run(
+    "@cf/openai/whisper-large-v3-turbo" as Parameters<typeof ai.run>[0],
+    input as Parameters<typeof ai.run>[1]
+  );
+
+  const text = (result as { text?: string }).text;
+  if (!text || text.trim().length === 0) {
     throw new EmptyTranscript("No transcript returned from Workers AI Whisper");
   }
 
-  const lastWord = result.words?.[result.words.length - 1];
-  const estimatedDuration = lastWord?.end ?? 0;
+  // Extract duration from segments or transcription_info
+  const info = (result as { transcription_info?: { duration?: number } }).transcription_info;
+  const segments = (result as { segments?: Array<{ words?: Array<{ end?: number }> }> }).segments;
+  let estimatedDuration = info?.duration ?? 0;
+  if (!estimatedDuration && segments?.length) {
+    const lastSeg = segments[segments.length - 1];
+    const lastWord = lastSeg.words?.[lastSeg.words.length - 1];
+    estimatedDuration = lastWord?.end ?? 0;
+  }
+
+  const wordCount = (result as { word_count?: number }).word_count ?? 0;
 
   return {
-    transcript: result.text.trim(),
+    transcript: text.trim(),
     confidence: 1.0,
     durationSeconds: estimatedDuration,
-    words: result.word_count ?? result.words?.length ?? 0,
+    words: wordCount,
   };
 }
 
@@ -56,7 +83,8 @@ export async function transcribeFromR2(
   env: Env,
   db: Database,
   r2Key: string,
-  entryId: string
+  entryId: string,
+  options?: { initialPrompt?: string }
 ): Promise<TranscriptionResult> {
   const logId = crypto.randomUUID();
 
@@ -67,7 +95,9 @@ export async function transcribeFromR2(
     }
 
     const audioBuffer = await object.arrayBuffer();
-    const result = await transcribeAudio(env.AI, audioBuffer);
+    const result = await transcribeAudio(env.AI, audioBuffer, {
+      initialPrompt: options?.initialPrompt,
+    });
 
     await logProcessing(db, {
       id: logId,

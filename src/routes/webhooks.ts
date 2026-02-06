@@ -22,6 +22,12 @@ import type { MediaRecord } from "../services/media";
 import { polishEntryWithLogging } from "../services/ai";
 import type { VoiceStyle } from "../services/ai";
 import { transcribeFromR2 } from "../services/transcription";
+import { listDictionaryTerms, addDictionaryTerm } from "../db/queries";
+import {
+  formatDictionaryForWhisper,
+  formatDictionaryForPolish,
+  extractProperNouns,
+} from "../services/dictionary";
 
 const webhooks = new Hono<{ Bindings: Env }>();
 
@@ -131,6 +137,11 @@ async function processJournalMessage(
     }
   }
 
+  // Fetch user's personal dictionary for transcription hints
+  const dictTerms = await listDictionaryTerms(db, user.id);
+  const whisperPrompt = formatDictionaryForWhisper(dictTerms);
+  const polishHint = formatDictionaryForPolish(dictTerms);
+
   // Transcribe audio/video via Workers AI Whisper
   if (mediaRecord && (entryType === "audio" || entryType === "video")) {
     try {
@@ -138,7 +149,8 @@ async function processJournalMessage(
         env,
         db,
         mediaRecord.r2Key,
-        entryId
+        entryId,
+        whisperPrompt ? { initialPrompt: whisperPrompt } : undefined
       );
 
       if (!rawContent) {
@@ -166,11 +178,28 @@ async function processJournalMessage(
         {
           voiceStyle: (user.voiceStyle as VoiceStyle) ?? "natural",
           voiceNotes: user.voiceNotes,
+          dictionaryHint: polishHint || undefined,
         }
       );
       await updateEntry(db, entryId, user.id, {
         polishedContent: result.polishedContent,
       });
+
+      // Auto-extract proper nouns from new entry
+      try {
+        const nouns = await extractProperNouns(env.ANTHROPIC_API_KEY, rawContent);
+        for (const noun of nouns) {
+          await addDictionaryTerm(db, {
+            id: crypto.randomUUID(),
+            userId: user.id,
+            term: noun.term,
+            category: noun.category,
+            autoExtracted: 1,
+          });
+        }
+      } catch {
+        // Non-critical — dictionary extraction failure shouldn't block entry
+      }
     } catch {
       // AI polish failed — entry keeps raw content only
     }

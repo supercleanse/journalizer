@@ -4,7 +4,7 @@ version: 0.2.0
 language: typescript
 
 === Intent ===
-purpose: Convert audio and video files to text using Cloudflare Workers AI Whisper model. Transcripts are used as raw content for journal entries, then passed to AI polish.
+purpose: Convert audio and video files to text using Cloudflare Workers AI Whisper model (whisper-large-v3-turbo). Supports initial_prompt with user's personal dictionary for proper noun accuracy. Transcripts are used as raw content for journal entries, then passed to AI polish.
 source:
   kind: prd
   reference: "PRD Section 8.2 — Audio/Video Transcription"
@@ -19,7 +19,8 @@ requires:
   - "Audio source is valid audio data as ArrayBuffer"
 guarantees:
   on_success:
-    - "transcribeAudio returns transcript text from Whisper model"
+    - "transcribeAudio returns transcript text from whisper-large-v3-turbo model"
+    - "Accepts optional initial_prompt for vocabulary context (proper nouns)"
     - "Word count and estimated duration are tracked"
     - "transcribeFromR2 fetches audio from R2 and transcribes it"
     - "Processing is logged to D1 processing_log table"

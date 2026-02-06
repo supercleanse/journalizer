@@ -28,6 +28,8 @@ import {
   EntryNotFound,
   AIPolishFailed,
 } from "../lib/errors";
+import { listDictionaryTerms } from "../db/queries";
+import { formatDictionaryForPolish, formatDictionaryForWhisper } from "../services/dictionary";
 
 const entries = new Hono<AppContext>();
 
@@ -161,6 +163,8 @@ entries.post("/", async (c) => {
   if (data.polishWithAI && data.rawContent) {
     try {
       const user = await getUserById(db, userId);
+      const dictTerms = await listDictionaryTerms(db, userId);
+      const polishHint = formatDictionaryForPolish(dictTerms);
       const result = await polishEntryWithLogging(
         db,
         c.env.ANTHROPIC_API_KEY,
@@ -169,6 +173,7 @@ entries.post("/", async (c) => {
         {
           voiceStyle: (user?.voiceStyle as VoiceStyle) ?? "natural",
           voiceNotes: user?.voiceNotes,
+          dictionaryHint: polishHint || undefined,
         }
       );
       polishedContent = result.polishedContent;
@@ -284,11 +289,16 @@ entries.post("/:id/retranscribe", async (c) => {
     return c.json({ error: "No audio/video media found on this entry" }, 400);
   }
 
+  const dictTerms = await listDictionaryTerms(db, userId);
+  const whisperPrompt = formatDictionaryForWhisper(dictTerms);
+  const polishHint = formatDictionaryForPolish(dictTerms);
+
   const transcription = await transcribeFromR2(
     c.env,
     db,
     audioMedia.r2Key,
-    entryId
+    entryId,
+    whisperPrompt ? { initialPrompt: whisperPrompt } : undefined
   );
 
   // Replace any existing [Transcription] block to avoid duplicates on re-transcribe
@@ -309,6 +319,7 @@ entries.post("/:id/retranscribe", async (c) => {
       {
         voiceStyle: (user.voiceStyle as VoiceStyle) ?? "natural",
         voiceNotes: user.voiceNotes,
+        dictionaryHint: polishHint || undefined,
       }
     );
     await updateEntry(db, entryId, userId, {

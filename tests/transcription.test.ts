@@ -8,12 +8,17 @@ describe("transcribeAudio", () => {
       run: vi.fn().mockResolvedValue({
         text: "Hello, this is a test.",
         word_count: 5,
-        words: [
-          { word: "Hello", start: 0, end: 0.5 },
-          { word: "this", start: 0.6, end: 0.8 },
-          { word: "is", start: 0.9, end: 1.0 },
-          { word: "a", start: 1.1, end: 1.2 },
-          { word: "test", start: 1.3, end: 1.8 },
+        transcription_info: { duration: 1.8 },
+        segments: [
+          {
+            words: [
+              { word: "Hello", start: 0, end: 0.5 },
+              { word: "this", start: 0.6, end: 0.8 },
+              { word: "is", start: 0.9, end: 1.0 },
+              { word: "a", start: 1.1, end: 1.2 },
+              { word: "test", start: 1.3, end: 1.8 },
+            ],
+          },
         ],
       }),
     } as unknown as Ai;
@@ -25,9 +30,14 @@ describe("transcribeAudio", () => {
     expect(result.words).toBe(5);
     expect(result.durationSeconds).toBe(1.8);
     expect(result.confidence).toBe(1.0);
-    expect(mockAi.run).toHaveBeenCalledWith("@cf/openai/whisper", {
-      audio: expect.any(Array),
-    });
+    expect(mockAi.run).toHaveBeenCalledWith(
+      "@cf/openai/whisper-large-v3-turbo",
+      expect.objectContaining({
+        audio: expect.any(String),
+        language: "en",
+        vad_filter: true,
+      })
+    );
   });
 
   it("throws EmptyTranscript when text is empty", async () => {
@@ -52,13 +62,18 @@ describe("transcribeAudio", () => {
     );
   });
 
-  it("falls back to words array length when word_count is missing", async () => {
+  it("falls back to segment words for duration when transcription_info is missing", async () => {
     const mockAi = {
       run: vi.fn().mockResolvedValue({
         text: "Hello world",
-        words: [
-          { word: "Hello", start: 0, end: 0.5 },
-          { word: "world", start: 0.6, end: 1.0 },
+        word_count: 2,
+        segments: [
+          {
+            words: [
+              { word: "Hello", start: 0, end: 0.5 },
+              { word: "world", start: 0.6, end: 1.0 },
+            ],
+          },
         ],
       }),
     } as unknown as Ai;
@@ -69,7 +84,7 @@ describe("transcribeAudio", () => {
     expect(result.durationSeconds).toBe(1.0);
   });
 
-  it("handles missing words array", async () => {
+  it("handles missing segments and transcription_info", async () => {
     const mockAi = {
       run: vi.fn().mockResolvedValue({
         text: "Hello world",
@@ -81,5 +96,27 @@ describe("transcribeAudio", () => {
     const result = await transcribeAudio(mockAi, buffer);
     expect(result.durationSeconds).toBe(0);
     expect(result.words).toBe(2);
+  });
+
+  it("passes initial_prompt when provided", async () => {
+    const mockAi = {
+      run: vi.fn().mockResolvedValue({
+        text: "Hello Aimee",
+        word_count: 2,
+        transcription_info: { duration: 0.8 },
+      }),
+    } as unknown as Ai;
+
+    const buffer = new ArrayBuffer(100);
+    await transcribeAudio(mockAi, buffer, {
+      initialPrompt: "Names and places: Aimee.",
+    });
+
+    expect(mockAi.run).toHaveBeenCalledWith(
+      "@cf/openai/whisper-large-v3-turbo",
+      expect.objectContaining({
+        initial_prompt: "Names and places: Aimee.",
+      })
+    );
   });
 });

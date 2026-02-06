@@ -90,6 +90,27 @@ export interface PrintOrder {
   createdAt: string;
 }
 
+export interface EmailSubscription {
+  id: string;
+  userId: string;
+  frequency: "weekly" | "monthly" | "quarterly" | "yearly";
+  entryTypes: "daily" | "individual" | "both";
+  isActive: number;
+  includeImages: number;
+  nextEmailDate: string | null;
+  lastEmailedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DictionaryTerm {
+  id: string;
+  term: string;
+  category: string;
+  autoExtracted: number;
+  createdAt: string;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
