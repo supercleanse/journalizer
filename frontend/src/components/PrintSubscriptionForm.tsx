@@ -138,7 +138,7 @@ export default function PrintSubscriptionForm() {
                   onClick={() =>
                     toggleMutation.mutate({
                       id: sub.id,
-                      isActive: !sub.isActive,
+                      isActive: sub.isActive === 1 ? false : true,
                     })
                   }
                   className={`h-4 w-8 rounded-full transition-colors ${

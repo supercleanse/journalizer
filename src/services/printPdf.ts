@@ -175,10 +175,14 @@ interface PageContent {
  * Generate a print-ready interior PDF for Lulu.
  * Returns the PDF bytes and page count.
  */
+const MAX_PRINT_ENTRIES = 500;
+
 export function generateInteriorPdf(
   entries: ExportEntry[],
   options: PrintPdfOptions
 ): { pdf: Uint8Array; pageCount: number } {
+  // Guard against memory exhaustion on Workers (128MB limit)
+  const limitedEntries = entries.slice(0, MAX_PRINT_ENTRIES);
   const specs = getSpecs(options.frequency);
   const { pageWidth, pageHeight, marginInner, marginOuter, marginTop, marginBottom } = specs;
   const usableWidth = pageWidth - marginInner - marginOuter;

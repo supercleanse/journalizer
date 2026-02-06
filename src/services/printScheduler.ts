@@ -20,7 +20,7 @@ import {
   getRetailPriceCents,
 } from "./lulu";
 import type { LuluShippingAddress } from "./lulu";
-import { chargeCustomer } from "./stripe";
+import { chargeCustomer, refundPayment } from "./stripe";
 
 // Glass contract: failure modes
 export { LuluAPIError, StripeAPIError, PaymentFailed } from "../lib/errors";
@@ -42,22 +42,20 @@ function calculatePeriodDates(
     }
     case "monthly": {
       const start = new Date(from);
-      const end = new Date(from);
-      end.setUTCMonth(end.getUTCMonth() + 1);
+      // End = day before the same date next month (handles month boundaries safely)
+      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, start.getUTCDate()));
       end.setUTCDate(end.getUTCDate() - 1);
       return { start: formatDateStr(start), end: formatDateStr(end) };
     }
     case "quarterly": {
       const start = new Date(from);
-      const end = new Date(from);
-      end.setUTCMonth(end.getUTCMonth() + 3);
+      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 3, start.getUTCDate()));
       end.setUTCDate(end.getUTCDate() - 1);
       return { start: formatDateStr(start), end: formatDateStr(end) };
     }
     case "yearly": {
       const start = new Date(from);
-      const end = new Date(from);
-      end.setUTCFullYear(end.getUTCFullYear() + 1);
+      const end = new Date(Date.UTC(start.getUTCFullYear() + 1, start.getUTCMonth(), start.getUTCDate()));
       end.setUTCDate(end.getUTCDate() - 1);
       return { start: formatDateStr(start), end: formatDateStr(end) };
     }
@@ -256,11 +254,21 @@ export async function handlePrintScheduler(env: Env): Promise<void> {
           luluJobId: String(luluJob.id),
         });
       } catch (err) {
+        // Refund the Stripe charge since Lulu submission failed
+        try {
+          await refundPayment(env.STRIPE_SECRET_KEY!, stripePaymentId);
+        } catch (refundErr) {
+          console.error(`Refund failed for order ${orderId}:`, refundErr);
+        }
         await updatePrintOrder(db, orderId, {
           status: "failed",
           errorMessage: err instanceof Error ? err.message : "Lulu submission failed",
         });
-        // Don't advance nextPrintDate on Lulu failure — retry next cycle
+        // Advance nextPrintDate so we don't retry and double-charge
+        const nextDate = getNextPrintDate(sub.frequency, end);
+        await updatePrintSubscription(db, sub.id, sub.userId, {
+          nextPrintDate: nextDate,
+        });
         continue;
       }
 

@@ -292,13 +292,22 @@ export async function verifyWebhookSignature(
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign", "verify"]
   );
-  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return computed === signature;
+  // Convert the provided hex signature to bytes for constant-time comparison
+  const expectedBytes = new Uint8Array(
+    (signature.match(/.{2}/g) ?? []).map((h) => parseInt(h, 16))
+  );
+  const computed = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, encoder.encode(payload))
+  );
+  // Constant-time comparison: always check all bytes
+  if (computed.length !== expectedBytes.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) {
+    diff |= computed[i] ^ expectedBytes[i];
+  }
+  return diff === 0;
 }
 
 // ── Markup Calculation ──────────────────────────────────────────────

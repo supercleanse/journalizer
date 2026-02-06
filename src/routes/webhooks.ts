@@ -291,19 +291,8 @@ webhooks.post("/lulu", async (c) => {
     };
     await handleLuluWebhook(c.env, payload);
   } else {
-    const payload = await c.req.json<{
-      topic: string;
-      data: {
-        id: number;
-        status: { name: string };
-        external_id: string;
-        line_items?: Array<{
-          tracking_id?: string | null;
-          tracking_urls?: string[];
-        }>;
-      };
-    }>();
-    await handleLuluWebhook(c.env, payload);
+    // Reject webhooks when LULU_API_SECRET is not configured
+    return c.json({ error: "Webhook verification not configured" }, 501);
   }
 
   return c.json({ ok: true });

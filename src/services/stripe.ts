@@ -68,10 +68,17 @@ export async function createCustomer(
   return customer.id;
 }
 
+function validateCustomerId(id: string): void {
+  if (!/^cus_[a-zA-Z0-9]+$/.test(id)) {
+    throw new StripeAPIError("Invalid Stripe customer ID");
+  }
+}
+
 export async function getCustomer(
   secretKey: string,
   customerId: string
 ): Promise<StripeCustomer> {
+  validateCustomerId(customerId);
   return stripeRequest<StripeCustomer>(
     secretKey,
     "GET",
@@ -148,4 +155,15 @@ export async function chargeCustomer(
   }
 
   return intent.id;
+}
+
+// ── Refunds ─────────────────────────────────────────────────────────
+
+export async function refundPayment(
+  secretKey: string,
+  paymentIntentId: string
+): Promise<void> {
+  await stripeRequest<{ id: string }>(secretKey, "POST", "/refunds", {
+    payment_intent: paymentIntentId,
+  });
 }

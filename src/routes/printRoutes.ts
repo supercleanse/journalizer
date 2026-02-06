@@ -7,7 +7,6 @@ import {
   getPrintSubscriptionById,
   createPrintSubscription,
   updatePrintSubscription,
-  deletePrintSubscription,
   listPrintOrders,
 } from "../db/queries";
 import { fetchEntriesForExport } from "../services/export";
@@ -31,9 +30,10 @@ export { ValidationError, PrintSubscriptionNotFound, DatabaseError } from "../li
 const printRoutes = new Hono<AppContext>();
 
 const VALID_FREQUENCIES = ["weekly", "monthly", "quarterly", "yearly"];
+const VALID_COLOR_OPTIONS = ["bw", "color"];
 
 function validateSubscriptionInput(body: Record<string, unknown>) {
-  const { frequency, shippingName, shippingLine1, shippingCity, shippingState, shippingZip } = body;
+  const { frequency, shippingName, shippingLine1, shippingCity, shippingState, shippingZip, shippingCountry, colorOption } = body;
 
   if (!frequency || !VALID_FREQUENCIES.includes(frequency as string)) {
     throw new ValidationError("frequency must be weekly, monthly, quarterly, or yearly");
@@ -52,6 +52,12 @@ function validateSubscriptionInput(body: Record<string, unknown>) {
   }
   if (!shippingZip || typeof shippingZip !== "string" || !shippingZip.trim()) {
     throw new ValidationError("shippingZip is required");
+  }
+  if (colorOption !== undefined && !VALID_COLOR_OPTIONS.includes(colorOption as string)) {
+    throw new ValidationError("colorOption must be 'bw' or 'color'");
+  }
+  if (shippingCountry !== undefined && (typeof shippingCountry !== "string" || !/^[A-Z]{2}$/.test(shippingCountry as string))) {
+    throw new ValidationError("shippingCountry must be a 2-letter ISO country code");
   }
 }
 
