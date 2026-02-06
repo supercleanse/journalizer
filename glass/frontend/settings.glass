@@ -24,6 +24,7 @@ guarantees:
     - "Bot username rendered dynamically from API response"
     - "Reminders section: list existing with toggle/delete, create new (daily/weekly/monthly/smart)"
     - "Query cache invalidated on all mutations"
+    - "Physical Journal section: print subscription management with order history"
   on_failure:
     - "API errors displayed as toast notifications"
     - "Loading state shown during initial fetch"

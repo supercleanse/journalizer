@@ -1,0 +1,29 @@
+=== Glass Unit ===
+id: types.index
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Shared TypeScript type definitions for the frontend application. Defines interfaces for all API response shapes used across pages and components.
+source:
+  kind: ai-generated
+  reference: "Frontend architecture — type safety"
+parent: frontend.app
+stakeholder: engineering
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Types align with backend API response shapes"
+guarantees:
+  on_success:
+    - "User, Entry, MediaAttachment, Reminder, PaginatedResponse, AuthUser interfaces"
+    - "PrintSubscription interface: id, frequency, shipping fields, colorOption, includeImages"
+    - "PrintOrder interface: id, status, frequency, periodStart, periodEnd, costCents, retailCents"
+  on_failure:
+    - "Type mismatches caught at compile time"
+invariants:
+  - "All nullable fields typed as T | null"
+fails:
+  TypeMismatch: "Caught at compile time"

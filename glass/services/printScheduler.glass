@@ -1,0 +1,41 @@
+=== Glass Unit ===
+id: services.printScheduler
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Cron handler that checks for due print subscriptions, generates PDFs, charges users via Stripe, and submits print jobs to Lulu. Runs within the existing 15-minute cron schedule.
+source:
+  kind: prd
+  reference: "Physical Journal Printing Feature Plan"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Active print subscriptions exist in the database"
+  - "Lulu and Stripe API credentials are configured"
+  - "User has entries for the print period"
+guarantees:
+  on_success:
+    - "Due subscriptions are identified based on frequency and last print date"
+    - "Entries are fetched for the correct date period"
+    - "Print-ready PDF is generated"
+    - "User is charged via Stripe before submitting to Lulu"
+    - "Print job is submitted to Lulu on successful payment"
+    - "Print order record is created and updated through the pipeline"
+    - "Subscription nextPrintDate is advanced to the next period"
+  on_failure:
+    - "Payment failures mark order as payment_failed"
+    - "Lulu failures mark order as failed with error message"
+    - "Individual subscription failures do not block other subscriptions"
+invariants:
+  - "Payment is charged before print job submission"
+  - "Order status reflects current pipeline stage"
+  - "Each subscription is processed at most once per period"
+fails:
+  PaymentFailed: "Mark order as payment_failed, skip Lulu submission"
+  LuluAPIError: "Mark order as failed, record error"
+  DatabaseError: "Log error, continue with next subscription"

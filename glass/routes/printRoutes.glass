@@ -1,0 +1,38 @@
+=== Glass Unit ===
+id: routes.printRoutes
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: REST API routes for managing print subscriptions and viewing print orders. Provides CRUD operations for subscriptions, order history, cost preview, and Lulu webhook handling.
+source:
+  kind: prd
+  reference: "Physical Journal Printing Feature Plan"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated (JWT via authMiddleware)"
+  - "Valid subscription data for create/update operations"
+guarantees:
+  on_success:
+    - "POST /subscriptions creates a new print subscription"
+    - "GET /subscriptions lists user's print subscriptions"
+    - "PUT /subscriptions/:id updates an existing subscription"
+    - "DELETE /subscriptions/:id deactivates a subscription"
+    - "GET /orders lists user's print orders with status"
+    - "POST /orders/preview returns page count and estimated cost"
+  on_failure:
+    - "ValidationError for invalid input"
+    - "PrintSubscriptionNotFound for missing subscriptions"
+invariants:
+  - "Users can only access their own subscriptions and orders"
+  - "Frequency must be weekly, monthly, quarterly, or yearly"
+  - "Shipping address fields are validated as non-empty"
+fails:
+  ValidationError: "Return 400 with validation details"
+  PrintSubscriptionNotFound: "Return 404"
+  DatabaseError: "Return 500"

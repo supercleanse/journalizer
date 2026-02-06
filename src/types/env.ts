@@ -13,6 +13,10 @@ export interface Env {
   ANTHROPIC_API_KEY: string;
   JWT_SECRET: string;
   ADMIN_EMAILS?: string;
+  LULU_API_KEY?: string;
+  LULU_API_SECRET?: string;
+  LULU_SANDBOX?: string;
+  STRIPE_SECRET_KEY?: string;
 }
 
 export interface AppVariables {

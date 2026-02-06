@@ -262,9 +262,101 @@ webhooks.post("/telegram", async (c) => {
   return c.json({ ok: true });
 });
 
-// POST /api/webhooks/lulu — print order status from Lulu (Phase 2)
+// POST /api/webhooks/lulu — print order status updates
 webhooks.post("/lulu", async (c) => {
-  return c.json({ error: "Not implemented" }, 501);
+  // Verify HMAC signature
+  if (c.env.LULU_API_SECRET) {
+    const signature = c.req.header("Lulu-HMAC-SHA256");
+    if (!signature) {
+      return c.json({ error: "Missing signature" }, 403);
+    }
+    const body = await c.req.text();
+    const { verifyWebhookSignature } = await import("../services/lulu");
+    const valid = await verifyWebhookSignature(body, signature, c.env.LULU_API_SECRET);
+    if (!valid) {
+      return c.json({ error: "Invalid signature" }, 403);
+    }
+    // Parse the body we already read
+    const payload = JSON.parse(body) as {
+      topic: string;
+      data: {
+        id: number;
+        status: { name: string };
+        external_id: string;
+        line_items?: Array<{
+          tracking_id?: string | null;
+          tracking_urls?: string[];
+        }>;
+      };
+    };
+    await handleLuluWebhook(c.env, payload);
+  } else {
+    // Reject webhooks when LULU_API_SECRET is not configured
+    return c.json({ error: "Webhook verification not configured" }, 501);
+  }
+
+  return c.json({ ok: true });
 });
+
+async function handleLuluWebhook(
+  env: Env,
+  payload: {
+    topic: string;
+    data: {
+      id: number;
+      status: { name: string };
+      external_id: string;
+      line_items?: Array<{
+        tracking_id?: string | null;
+        tracking_urls?: string[];
+      }>;
+    };
+  }
+) {
+  if (payload.topic !== "PRINT_JOB_STATUS_CHANGED") return;
+
+  const { getPrintOrderByLuluJobId, updatePrintOrder, logProcessing } = await import("../db/queries");
+  const db = createDb(env.DB);
+
+  const order = await getPrintOrderByLuluJobId(db, String(payload.data.id));
+  if (!order) return;
+
+  const statusMap: Record<string, string> = {
+    CREATED: "uploaded",
+    ACCEPTED: "uploaded",
+    IN_PRODUCTION: "in_production",
+    SHIPPED: "shipped",
+    REJECTED: "failed",
+    ERROR: "failed",
+  };
+
+  const newStatus = statusMap[payload.data.status.name];
+  if (!newStatus) return;
+
+  const updates: Parameters<typeof updatePrintOrder>[2] = { status: newStatus };
+
+  // Extract tracking URL if shipped
+  if (newStatus === "shipped" && payload.data.line_items?.[0]?.tracking_urls?.[0]) {
+    updates.trackingUrl = payload.data.line_items[0].tracking_urls[0];
+  }
+
+  if (newStatus === "failed") {
+    updates.errorMessage = `Lulu status: ${payload.data.status.name}`;
+  }
+
+  await updatePrintOrder(db, order.id, updates);
+
+  await logProcessing(db, {
+    id: crypto.randomUUID(),
+    action: "lulu_webhook",
+    status: "success",
+    details: JSON.stringify({
+      orderId: order.id,
+      luluJobId: payload.data.id,
+      luluStatus: payload.data.status.name,
+      mappedStatus: newStatus,
+    }),
+  });
+}
 
 export default webhooks;

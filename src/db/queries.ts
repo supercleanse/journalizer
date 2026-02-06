@@ -7,6 +7,8 @@ import {
   reminders,
   processingLog,
   digestEntries,
+  printSubscriptions,
+  printOrders,
 } from "./schema";
 
 // Glass contract: failure modes (soft failures return null)
@@ -78,6 +80,7 @@ export async function updateUser(
     voiceNotes: string;
     timezone: string;
     role: "user" | "admin";
+    stripeCustomerId: string;
   }>
 ) {
   await db
@@ -629,6 +632,183 @@ export async function getDigestMediaForEntries(
     }
   }
   return result;
+}
+
+// ── Print Subscriptions ─────────────────────────────────────────────
+
+export async function listPrintSubscriptions(db: Database, userId: string) {
+  return db
+    .select()
+    .from(printSubscriptions)
+    .where(eq(printSubscriptions.userId, userId));
+}
+
+export async function getPrintSubscriptionById(
+  db: Database,
+  id: string,
+  userId: string
+) {
+  const result = await db
+    .select()
+    .from(printSubscriptions)
+    .where(
+      and(eq(printSubscriptions.id, id), eq(printSubscriptions.userId, userId))
+    )
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function createPrintSubscription(
+  db: Database,
+  data: {
+    id: string;
+    userId: string;
+    frequency: string;
+    shippingName: string;
+    shippingLine1: string;
+    shippingLine2?: string;
+    shippingCity: string;
+    shippingState: string;
+    shippingZip: string;
+    shippingCountry?: string;
+    colorOption?: string;
+    includeImages?: number;
+    nextPrintDate?: string;
+  }
+) {
+  await db.insert(printSubscriptions).values(data);
+  return getPrintSubscriptionById(db, data.id, data.userId);
+}
+
+export async function updatePrintSubscription(
+  db: Database,
+  id: string,
+  userId: string,
+  data: Partial<{
+    frequency: string;
+    isActive: number;
+    shippingName: string;
+    shippingLine1: string;
+    shippingLine2: string | null;
+    shippingCity: string;
+    shippingState: string;
+    shippingZip: string;
+    shippingCountry: string;
+    colorOption: string;
+    includeImages: number;
+    nextPrintDate: string | null;
+    lastPrintedAt: string;
+  }>
+) {
+  await db
+    .update(printSubscriptions)
+    .set({ ...data, updatedAt: sql`(datetime('now'))` })
+    .where(
+      and(eq(printSubscriptions.id, id), eq(printSubscriptions.userId, userId))
+    );
+  return getPrintSubscriptionById(db, id, userId);
+}
+
+export async function deletePrintSubscription(
+  db: Database,
+  id: string,
+  userId: string
+) {
+  const result = await db
+    .delete(printSubscriptions)
+    .where(
+      and(eq(printSubscriptions.id, id), eq(printSubscriptions.userId, userId))
+    );
+  return result.meta.changes > 0;
+}
+
+export async function getActivePrintSubscriptions(db: Database) {
+  return db
+    .select()
+    .from(printSubscriptions)
+    .where(eq(printSubscriptions.isActive, 1));
+}
+
+// ── Print Orders ────────────────────────────────────────────────────
+
+export async function listPrintOrders(db: Database, userId: string) {
+  return db
+    .select()
+    .from(printOrders)
+    .where(eq(printOrders.userId, userId))
+    .orderBy(desc(printOrders.createdAt));
+}
+
+export async function getPrintOrderById(db: Database, id: string) {
+  const result = await db
+    .select()
+    .from(printOrders)
+    .where(eq(printOrders.id, id))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function getPrintOrderByLuluJobId(
+  db: Database,
+  luluJobId: string
+) {
+  const result = await db
+    .select()
+    .from(printOrders)
+    .where(eq(printOrders.luluJobId, luluJobId))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function getLastPrintOrder(
+  db: Database,
+  subscriptionId: string
+) {
+  const result = await db
+    .select()
+    .from(printOrders)
+    .where(eq(printOrders.subscriptionId, subscriptionId))
+    .orderBy(desc(printOrders.createdAt))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function createPrintOrder(
+  db: Database,
+  data: {
+    id: string;
+    userId: string;
+    subscriptionId?: string;
+    frequency: string;
+    periodStart: string;
+    periodEnd: string;
+    status?: string;
+  }
+) {
+  await db.insert(printOrders).values(data);
+  return getPrintOrderById(db, data.id);
+}
+
+export async function updatePrintOrder(
+  db: Database,
+  id: string,
+  data: Partial<{
+    luluJobId: string;
+    status: string;
+    entryCount: number;
+    pageCount: number;
+    costCents: number;
+    retailCents: number;
+    trackingUrl: string;
+    errorMessage: string;
+    stripePaymentId: string;
+  }>
+) {
+  await db
+    .update(printOrders)
+    .set({ ...data, updatedAt: sql`(datetime('now'))` })
+    .where(eq(printOrders.id, id));
+  return getPrintOrderById(db, id);
 }
 
 // ── Processing Log ──────────────────────────────────────────────────

@@ -1,0 +1,37 @@
+=== Glass Unit ===
+id: services.lulu
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Lulu Print API client for creating print jobs, checking status, calculating costs, and handling OAuth2 authentication. Supports white-label branding with custom packing slips and return addresses.
+source:
+  kind: prd
+  reference: "Physical Journal Printing Feature Plan"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "LULU_API_KEY and LULU_API_SECRET env vars are set"
+  - "Valid shipping address and PDF file for print job creation"
+guarantees:
+  on_success:
+    - "OAuth2 token is obtained and cached for reuse"
+    - "Print jobs are created with correct trim size based on frequency"
+    - "Weekly booklets use 5.5x8.5 saddle-stitch, others use 6x9 perfect-bound"
+    - "Cost calculations return accurate cost_cents from Lulu API"
+    - "White-label branding is applied: custom packing slip, return address, external IDs"
+    - "Print job status is retrievable by Lulu job ID"
+  on_failure:
+    - "LuluAPIError is thrown with descriptive message"
+    - "Auth failures trigger token refresh"
+invariants:
+  - "Sandbox mode is used when LULU_SANDBOX=true"
+  - "All API calls include valid Bearer token"
+  - "Shipping address is structured per Lulu API requirements"
+fails:
+  LuluAPIError: "Propagate with Lulu error details"
+  AuthError: "Refresh token and retry once"

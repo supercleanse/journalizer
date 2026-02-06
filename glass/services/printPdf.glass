@@ -1,0 +1,35 @@
+=== Glass Unit ===
+id: services.printPdf
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Generate print-ready PDFs that meet Lulu's printing specifications. Adapts the existing PDF generator for different trim sizes, margins, and binding requirements based on print frequency.
+source:
+  kind: prd
+  reference: "Physical Journal Printing Feature Plan"
+parent: services.export
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Entries array with content and optional image data"
+  - "Print options specifying frequency, color, and user info"
+guarantees:
+  on_success:
+    - "Weekly booklets produce 5.5x8.5 inch PDF (396x612 points)"
+    - "Monthly/quarterly/yearly books produce 6x9 inch PDF (432x648 points)"
+    - "Saddle-stitch booklets have page count padded to multiple of 4"
+    - "Margins: 0.5 inch inner, 0.375 inch outer, 0.5 inch top/bottom"
+    - "Cover page is generated separately for perfect-bound books"
+    - "Interior PDF uses same formatting as export PDF (Helvetica, bold headings, etc.)"
+  on_failure:
+    - "Error is propagated to caller"
+invariants:
+  - "PDF uses absolute positioning (Tm operator)"
+  - "All text is sanitized for PDF safety"
+  - "Image dimensions are scaled to fit within print margins"
+fails:
+  GenerationError: "Propagate error to caller"
