@@ -4,7 +4,7 @@ version: 0.1.0
 language: typescript
 
 === Intent ===
-purpose: Settings page for user profile, Telegram linking, reminders, export, and physical journal print subscriptions.
+purpose: Settings page for user profile, Telegram linking, reminders, and export.
 source:
   kind: prd
   reference: "PRD Section 9.4 — Settings Page"
@@ -18,7 +18,7 @@ requires:
   - "User authenticated"
 guarantees:
   on_success:
-    - "Renders profile, Telegram, reminders, export, and print subscription sections"
+    - "Renders profile, Telegram, reminders, and export sections"
   on_failure:
     - "Loading state or error toast"
 invariants:

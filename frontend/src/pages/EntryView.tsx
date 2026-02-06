@@ -45,6 +45,17 @@ export default function EntryView() {
     onError: () => toast.error("Failed to delete entry"),
   });
 
+  const regenerateMutation = useMutation({
+    mutationFn: (date: string) =>
+      api.post<{ success: boolean }>("/api/entries/regenerate-digest", { date }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["entry", id] });
+      queryClient.invalidateQueries({ queryKey: ["entries"] });
+      toast.success("Daily Combined Entry regenerated");
+    },
+    onError: () => toast.error("Failed to regenerate"),
+  });
+
   const timezone = useTimezone();
   const entry = data?.entry;
   const isDigest = entry?.entryType === "digest";
@@ -110,7 +121,7 @@ export default function EntryView() {
             <div className="flex items-center gap-2">
               {isDigest ? (
                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                  Daily Entry
+                  Daily Combined Entry
                 </span>
               ) : (
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
@@ -299,12 +310,23 @@ export default function EntryView() {
         {/* Actions */}
         {!isEditing && (
           <div className="mt-4 flex justify-between">
-            <button
-              onClick={startEditing}
-              className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-            >
-              Edit
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={startEditing}
+                className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+              >
+                Edit
+              </button>
+              {isDigest && (
+                <button
+                  onClick={() => regenerateMutation.mutate(entry.entryDate)}
+                  disabled={regenerateMutation.isPending}
+                  className="rounded-md px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                >
+                  {regenerateMutation.isPending ? "Re-Generating..." : "Re-Generate"}
+                </button>
+              )}
+            </div>
             <button
               onClick={() => {
                 if (confirm("Delete this entry? This cannot be undone.")) {

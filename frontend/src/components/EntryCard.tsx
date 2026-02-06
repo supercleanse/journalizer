@@ -8,7 +8,7 @@ const typeLabels: Record<string, string> = {
   photo: "Photo",
   audio: "Audio",
   video: "Video",
-  digest: "Daily Entry",
+  digest: "Daily Combined Entry",
 };
 
 const TRUNCATE_LENGTH = 300;
@@ -85,7 +85,7 @@ export default function EntryCard({ entry, timezone }: { entry: Entry; timezone:
         <div className="mb-2 flex items-center justify-between">
           {isDigest ? (
             <span className="text-xs font-medium text-blue-600">
-              Daily Entry
+              Daily Combined Entry
             </span>
           ) : (
             <time className="text-xs text-gray-400">

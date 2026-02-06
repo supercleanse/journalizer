@@ -4,7 +4,7 @@ version: 0.1.0
 language: typescript
 
 === Intent ===
-purpose: Polish raw journal entries using Anthropic Claude API. Takes raw text (from SMS, voice transcription, or web input) and refines it for readability while preserving the user's authentic voice, words, and personality.
+purpose: Minimally clean up raw journal entries using Anthropic Claude API. Takes raw text (from SMS, voice transcription, or web input) and fixes only typos, grammar, and punctuation — preserving the user's direct words, phrasing, and personality with an extremely light touch.
 source:
   kind: prd
   reference: "PRD Section 8.2 — AI Content Processing"
@@ -19,7 +19,8 @@ requires:
   - "Raw content is non-empty text"
 guarantees:
   on_success:
-    - "Polished text preserves the author's words, meaning, and tone"
+    - "Output uses the author's direct words — only typos, grammar, and punctuation are fixed"
+    - "Personal dictionary terms are used to correct proper noun spellings"
     - "Voice style preference (natural/conversational/reflective/polished) is respected"
     - "Custom voice notes are incorporated into the editing instructions"
     - "Token usage is tracked and logged to processing_log table"

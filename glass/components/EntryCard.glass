@@ -1,0 +1,29 @@
+=== Glass Unit ===
+id: components.entry_card
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Card component for displaying a journal entry in the dashboard list. Shows entry content, media previews, source badges, and type labels. Daily Combined Entries are visually distinct with blue styling.
+source:
+  kind: prd
+  reference: "PRD Section 10.1 — Dashboard"
+parent: pages.dashboard
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Entry object with media attachments"
+guarantees:
+  on_success:
+    - "Renders entry content with truncation for long entries"
+    - "Shows media previews (images, audio, video)"
+    - "Daily Combined Entries labeled and styled distinctly"
+  on_failure:
+    - "Graceful fallback for missing content"
+invariants:
+  - "Links to full entry view on click"
+fails:
+  MissingContent: "Show empty card"

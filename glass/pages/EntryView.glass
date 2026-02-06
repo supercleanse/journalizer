@@ -1,0 +1,31 @@
+=== Glass Unit ===
+id: pages.entry_view
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Full entry view page. Shows complete entry content, media attachments, edit/delete actions, and for Daily Combined Entries shows source entries and a Re-Generate button.
+source:
+  kind: prd
+  reference: "PRD Section 10.1 — Entry Detail View"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User authenticated"
+  - "Valid entry ID in URL params"
+guarantees:
+  on_success:
+    - "Renders full entry with all media"
+    - "Daily Combined Entries show 'View individual entries' toggle"
+    - "Daily Combined Entries show 'Re-Generate' button that triggers digest regeneration"
+    - "Edit and delete actions available"
+  on_failure:
+    - "404 message for missing entries"
+invariants:
+  - "Only entry owner can view/edit/delete"
+fails:
+  EntryNotFound: "Show not found message"

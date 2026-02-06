@@ -72,7 +72,7 @@ describe("generatePdfWithImages", () => {
     const result = generatePdfWithImages([makeEntry({ entryType: "digest", entryDate: "2026-01-15" })], defaultOptions);
     const text = new TextDecoder().decode(result);
     expect(text).toContain("January 15, 2026");
-    expect(text).toContain("Daily Entry");
+    expect(text).toContain("Daily Combined Entry");
   });
 
   it("renders entry headers in bold font", () => {
