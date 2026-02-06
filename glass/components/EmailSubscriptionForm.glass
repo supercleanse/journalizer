@@ -1,0 +1,31 @@
+=== Glass Unit ===
+id: components.EmailSubscriptionForm
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: React component for managing recurring email subscriptions in Settings. Users can create, toggle, and delete subscriptions that send journal PDFs on a recurring schedule.
+source:
+  kind: prd
+  reference: "Recurring PDF Email Feature Plan"
+parent: pages.Settings
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "API endpoints available at /api/email/subscriptions"
+  - "User is authenticated"
+guarantees:
+  on_success:
+    - "Lists existing subscriptions with frequency, entry types, next date, and active toggle"
+    - "Form to add new subscription: frequency, entry types, include images"
+    - "Delete button per subscription"
+    - "Toast notifications for success/failure"
+  on_failure:
+    - "API errors shown via toast"
+invariants:
+  - "Matches existing Settings UI style"
+fails:
+  APIError: "Show error toast"

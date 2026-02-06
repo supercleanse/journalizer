@@ -17,6 +17,8 @@ export interface Env {
   LULU_API_SECRET?: string;
   LULU_SANDBOX?: string;
   STRIPE_SECRET_KEY?: string;
+  RESEND_API_KEY?: string;
+  RESEND_FROM_EMAIL?: string;
 }
 
 export interface AppVariables {

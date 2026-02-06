@@ -1,0 +1,40 @@
+=== Glass Unit ===
+id: services.emailScheduler
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Cron handler that checks for due email subscriptions, generates journal PDFs using the existing export system, and sends them as email attachments via Resend. Runs within the existing 15-minute cron schedule alongside reminders and print scheduler.
+source:
+  kind: prd
+  reference: "Recurring PDF Email Feature Plan"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "RESEND_API_KEY is configured in environment"
+  - "Active email subscriptions exist with nextEmailDate <= today"
+  - "User has a valid email address (from Google OAuth)"
+guarantees:
+  on_success:
+    - "Due subscriptions are identified based on nextEmailDate"
+    - "Entries are fetched for the correct date period using fetchEntriesForExport"
+    - "PDF is generated via generatePdfWithImages with images included per subscription setting"
+    - "Entry types filter (daily/individual/both) is respected per subscription"
+    - "Email is sent with PDF attachment via Resend"
+    - "Subscription nextEmailDate is advanced to the next period"
+    - "Success is logged to processing_log"
+  on_failure:
+    - "Subscriptions with no entries skip silently (advance date, log as skipped)"
+    - "Individual subscription failures do not block other subscriptions"
+    - "Missing RESEND_API_KEY causes silent skip (no error)"
+invariants:
+  - "Each subscription is processed at most once per period"
+  - "PDF generation reuses existing export.ts functions (no duplication)"
+  - "Period calculation uses shared lib/period.ts utilities"
+fails:
+  ResendAPIError: "Log error, continue with next subscription"
+  DatabaseError: "Log error, continue with next subscription"

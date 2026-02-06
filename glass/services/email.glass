@@ -1,0 +1,32 @@
+=== Glass Unit ===
+id: services.email
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Send emails with optional PDF attachments via the Resend REST API. Provides a thin wrapper around the Resend API for sending journal PDF exports to users.
+source:
+  kind: prd
+  reference: "Recurring PDF Email Feature Plan"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Valid Resend API key"
+  - "Verified sender email domain in Resend"
+guarantees:
+  on_success:
+    - "sendEmail sends an email via POST https://api.resend.com/emails"
+    - "Supports HTML body and base64-encoded file attachments"
+    - "Returns Resend email ID on success"
+    - "uint8ArrayToBase64 converts Uint8Array to base64 string for attachments"
+  on_failure:
+    - "Non-2xx Resend response throws ResendAPIError with status and body"
+invariants:
+  - "No SDK dependency — uses fetch() directly"
+  - "Attachments are base64-encoded strings"
+fails:
+  ResendAPIError: "Resend API returned non-2xx status"
