@@ -1,0 +1,35 @@
+=== Glass Unit ===
+id: services.stripe
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Stripe payment client for charging users per print job. Uses existing saved payment methods from user subscriptions. Handles customer creation, payment intents, and payment method retrieval.
+source:
+  kind: prd
+  reference: "Physical Journal Printing Feature Plan"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "STRIPE_SECRET_KEY env var is set"
+  - "User has a stripe_customer_id with a saved payment method"
+guarantees:
+  on_success:
+    - "Payment intents are created with correct amount in cents"
+    - "Default payment method is used from customer record"
+    - "Payment intent ID is returned for order tracking"
+    - "Customer creation returns a new Stripe customer ID"
+  on_failure:
+    - "StripeAPIError is thrown with Stripe error details"
+    - "PaymentFailed is thrown when charge is declined"
+invariants:
+  - "All amounts are in cents (integer)"
+  - "Currency is USD"
+  - "Payment intents use off_session and confirm=true for automatic charges"
+fails:
+  StripeAPIError: "Propagate Stripe error details"
+  PaymentFailed: "Return decline reason for user notification"

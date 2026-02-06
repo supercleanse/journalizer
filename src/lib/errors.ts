@@ -293,6 +293,43 @@ export class EmptyTranscript extends AppError {
   }
 }
 
+// ── Print / Lulu / Stripe Errors ────────────────────────────────────
+
+export class LuluAPIError extends AppError {
+  constructor(message = "Lulu API error") {
+    super(502, "LULU_API_ERROR", message);
+    this.name = "LuluAPIError";
+  }
+}
+
+export class StripeAPIError extends AppError {
+  constructor(message = "Stripe API error") {
+    super(502, "STRIPE_API_ERROR", message);
+    this.name = "StripeAPIError";
+  }
+}
+
+export class PaymentFailed extends AppError {
+  constructor(message = "Payment failed") {
+    super(402, "PAYMENT_FAILED", message);
+    this.name = "PaymentFailed";
+  }
+}
+
+export class PrintOrderNotFound extends AppError {
+  constructor(message = "Print order not found") {
+    super(404, "PRINT_ORDER_NOT_FOUND", message);
+    this.name = "PrintOrderNotFound";
+  }
+}
+
+export class PrintSubscriptionNotFound extends AppError {
+  constructor(message = "Print subscription not found") {
+    super(404, "PRINT_SUBSCRIPTION_NOT_FOUND", message);
+    this.name = "PrintSubscriptionNotFound";
+  }
+}
+
 export function errorHandler(err: Error, c: Context<AppContext, string>) {
   if (err instanceof AppError) {
     return c.json(

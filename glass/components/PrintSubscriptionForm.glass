@@ -1,0 +1,33 @@
+=== Glass Unit ===
+id: components.printSubscriptionForm
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: React form component for managing print subscriptions. Allows users to configure shipping address, frequency, color/BW option, and view order history with status badges.
+source:
+  kind: prd
+  reference: "Physical Journal Printing Feature Plan — Frontend UI"
+parent: frontend.settings
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated"
+  - "Print API endpoints are available"
+guarantees:
+  on_success:
+    - "Displays existing subscriptions with edit/deactivate controls"
+    - "Provides form to create new subscription with shipping address, frequency, and options"
+    - "Shows order history with status badges (Pending, Printing, Shipped, Delivered, Failed)"
+    - "Displays estimated cost per frequency based on Lulu pricing"
+  on_failure:
+    - "Toast error messages for API failures"
+invariants:
+  - "Frequency must be weekly, monthly, quarterly, or yearly"
+  - "Required shipping fields are validated before submission"
+fails:
+  ApiError: "Display toast with error message"
+  ValidationError: "Highlight invalid fields"

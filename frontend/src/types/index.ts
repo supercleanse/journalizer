@@ -52,6 +52,44 @@ export interface PaginatedResponse<T> {
   limit: number;
 }
 
+export interface PrintSubscription {
+  id: string;
+  userId: string;
+  frequency: "weekly" | "monthly" | "quarterly" | "yearly";
+  isActive: number;
+  shippingName: string;
+  shippingLine1: string;
+  shippingLine2: string | null;
+  shippingCity: string;
+  shippingState: string;
+  shippingZip: string;
+  shippingCountry: string;
+  colorOption: string;
+  includeImages: number;
+  nextPrintDate: string | null;
+  lastPrintedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PrintOrder {
+  id: string;
+  userId: string;
+  subscriptionId: string | null;
+  luluJobId: string | null;
+  status: string;
+  frequency: string;
+  periodStart: string;
+  periodEnd: string;
+  entryCount: number | null;
+  pageCount: number | null;
+  costCents: number | null;
+  retailCents: number | null;
+  trackingUrl: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

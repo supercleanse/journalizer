@@ -7,6 +7,7 @@ import {
 import toast from "react-hot-toast";
 import Header from "../components/Header";
 import ExportForm from "../components/ExportForm";
+import PrintSubscriptionForm from "../components/PrintSubscriptionForm";
 import { api } from "../lib/api";
 import type { User, Reminder } from "../types";
 
@@ -634,6 +635,17 @@ export default function Settings() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Physical Journal */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-lg font-medium text-gray-900">
+            Physical Journal
+          </h2>
+          <p className="mb-3 text-sm text-gray-500">
+            Get a printed copy of your journal delivered to your door.
+          </p>
+          <PrintSubscriptionForm />
         </div>
 
         {/* Export Data */}

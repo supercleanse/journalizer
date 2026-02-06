@@ -24,6 +24,8 @@ guarantees:
     - "Reminder interface: id, reminderType (daily/weekly/monthly/smart), timeOfDay, dayOfWeek, dayOfMonth, smartThreshold, isActive (boolean)"
     - "PaginatedResponse<T> generic wrapper with entries, total, offset, limit"
     - "AuthUser interface: id, email, displayName, avatarUrl, timezone, telegramLinked, voiceStyle, role, createdAt"
+    - "PrintSubscription interface: id, userId, frequency, isActive, shipping fields, colorOption, includeImages, nextPrintDate, lastPrintedAt"
+    - "PrintOrder interface: id, userId, subscriptionId, luluJobId, status, frequency, periodStart, periodEnd, entryCount, pageCount, costCents, retailCents, trackingUrl"
   on_failure:
     - "Type mismatches caught at compile time"
 invariants:

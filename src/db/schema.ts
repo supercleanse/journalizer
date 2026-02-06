@@ -20,6 +20,7 @@ export const users = sqliteTable(
     timezone: text("timezone").default("America/New_York"),
     role: text("role").notNull().default("user"),
     lastDigestDate: text("last_digest_date"),
+    stripeCustomerId: text("stripe_customer_id"),
     createdAt: text("created_at").default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").default(sql`(datetime('now'))`),
   },
@@ -133,16 +134,63 @@ export const digestEntries = sqliteTable(
   ]
 );
 
-export const printSubscriptions = sqliteTable("print_subscriptions", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  frequency: text("frequency").notNull(),
-  format: text("format").default("softcover"),
-  status: text("status").default("active"),
-  shippingAddress: text("shipping_address"),
-  nextPrintDate: text("next_print_date"),
-  lastPrintedAt: text("last_printed_at"),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
-});
+export const printSubscriptions = sqliteTable(
+  "print_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    frequency: text("frequency").notNull(), // weekly | monthly | quarterly | yearly
+    isActive: integer("is_active").default(1),
+    shippingName: text("shipping_name").notNull(),
+    shippingLine1: text("shipping_line1").notNull(),
+    shippingLine2: text("shipping_line2"),
+    shippingCity: text("shipping_city").notNull(),
+    shippingState: text("shipping_state").notNull(),
+    shippingZip: text("shipping_zip").notNull(),
+    shippingCountry: text("shipping_country").notNull().default("US"),
+    colorOption: text("color_option").default("bw"), // bw | color
+    includeImages: integer("include_images").default(1),
+    nextPrintDate: text("next_print_date"),
+    lastPrintedAt: text("last_printed_at"),
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_print_subs_user").on(table.userId),
+  ]
+);
+
+export const printOrders = sqliteTable(
+  "print_orders",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    subscriptionId: text("subscription_id").references(
+      () => printSubscriptions.id,
+      { onDelete: "set null" }
+    ),
+    luluJobId: text("lulu_job_id"),
+    status: text("status").notNull().default("pending"), // pending | generating | uploaded | in_production | shipped | delivered | failed | payment_failed
+    frequency: text("frequency").notNull(),
+    periodStart: text("period_start").notNull(),
+    periodEnd: text("period_end").notNull(),
+    entryCount: integer("entry_count"),
+    pageCount: integer("page_count"),
+    costCents: integer("cost_cents"),
+    retailCents: integer("retail_cents"),
+    trackingUrl: text("tracking_url"),
+    errorMessage: text("error_message"),
+    stripePaymentId: text("stripe_payment_id"),
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_print_orders_user").on(table.userId),
+    index("idx_print_orders_sub").on(table.subscriptionId),
+    index("idx_print_orders_status").on(table.status),
+  ]
+);

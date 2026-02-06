@@ -1,0 +1,27 @@
+=== Glass Unit ===
+id: pages.settings
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Settings page for user profile, Telegram linking, reminders, export, and physical journal print subscriptions.
+source:
+  kind: prd
+  reference: "PRD Section 9.4 — Settings Page"
+parent: frontend.app
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User authenticated"
+guarantees:
+  on_success:
+    - "Renders profile, Telegram, reminders, export, and print subscription sections"
+  on_failure:
+    - "Loading state or error toast"
+invariants:
+  - "All sections operate independently"
+fails:
+  APIError: "Toast notification"
