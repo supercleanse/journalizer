@@ -50,9 +50,12 @@ export default function Dashboard() {
     const params = new URLSearchParams({
       offset: String(offset),
       limit: String(limit),
-      timelineView: "true",
     });
-    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (debouncedSearch) {
+      params.set("search", debouncedSearch);
+    } else {
+      params.set("timelineView", "true");
+    }
     if (selectedDate) {
       const d = format(selectedDate, "yyyy-MM-dd");
       params.set("startDate", d);

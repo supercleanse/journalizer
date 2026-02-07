@@ -23,7 +23,7 @@ guarantees:
     - "Entries displayed in reverse-chronological order grouped by date"
     - "Calendar sidebar highlights dates with entries via dot indicators"
     - "Clicking a calendar date filters entries to that date"
-    - "Search input debounces at 300ms and queries full-text search API"
+    - "Search input debounces at 300ms and queries full-text search API (disables timelineView to show all matching entries)"
     - "Infinite scroll loads next page via Intersection Observer"
     - "Streak counter calculates consecutive days with entries"
     - "Monthly entry count shown in stats panel"
