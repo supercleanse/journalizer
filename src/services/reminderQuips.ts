@@ -116,7 +116,9 @@ async function generateQuip(apiKey: string, dateStr: string): Promise<string> {
   const textBlock = message.content.find((block) => block.type === "text");
   if (!textBlock?.text) throw new Error("Empty AI response for reminder quip");
 
-  return textBlock.text.trim();
+  // Guard against unexpectedly long responses
+  const quip = textBlock.text.trim();
+  return quip.length > 200 ? quip.slice(0, 200) : quip;
 }
 
 export function getFallbackQuip(dateStr: string): string {

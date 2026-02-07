@@ -10,7 +10,7 @@ import {
 } from "../db/queries";
 import { sendTelegramMessage } from "./telegram";
 import { generateDailyDigest } from "./digest";
-import { getDailyQuip } from "./reminderQuips";
+import { getDailyQuip, getFallbackQuip } from "./reminderQuips";
 
 // Glass contract: failure modes (soft failures in cron loop)
 export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid, DigestGenerationFailed } from "../lib/errors";
@@ -186,7 +186,12 @@ export async function handleCron(env: Env): Promise<void> {
   }
 
   // ── Reminders ────────────────────────────────────────────────────
-  const dailyQuip = await getDailyQuip(env);
+  let dailyQuip: string;
+  try {
+    dailyQuip = await getDailyQuip(env);
+  } catch {
+    dailyQuip = getFallbackQuip(new Date().toISOString().split("T")[0]);
+  }
   const activeReminders = await getAllActiveReminders(db);
 
   // Batch-fetch all users and last entry dates to avoid N+1 queries

@@ -19,6 +19,7 @@ function timeMatches(
 function selectMessage(
   reminderType: string,
   reminderId: string,
+  dailyQuip: string,
   daysSinceLastEntry?: number
 ): string {
   const DAILY_MESSAGES = [
@@ -32,6 +33,7 @@ function selectMessage(
   const SMART_NUDGE_TEMPLATE = (days: number) =>
     `It's been ${days} day${days === 1 ? "" : "s"} since your last entry. No pressure, but we're here when you're ready!`;
 
+  // Smart nudges keep their own tone — no quip prepended
   if (reminderType === "smart" && daysSinceLastEntry !== undefined) {
     return SMART_NUDGE_TEMPLATE(daysSinceLastEntry);
   }
@@ -45,7 +47,7 @@ function selectMessage(
     hash = (hash * 31 + today.charCodeAt(i)) | 0;
   }
   const idx = Math.abs(hash) % DAILY_MESSAGES.length;
-  return DAILY_MESSAGES[idx];
+  return `${dailyQuip}\n\n${DAILY_MESSAGES[idx]}`;
 }
 
 describe("timeMatches", () => {
@@ -77,27 +79,30 @@ describe("timeMatches", () => {
 });
 
 describe("selectMessage", () => {
-  it("returns a smart nudge message with day count", () => {
-    const msg = selectMessage("smart", "reminder-1", 5);
+  const testQuip = "Your journal misses you.";
+
+  it("returns a smart nudge message with day count (no quip)", () => {
+    const msg = selectMessage("smart", "reminder-1", testQuip, 5);
     expect(msg).toContain("5 days");
     expect(msg).toContain("since your last entry");
+    expect(msg).not.toContain(testQuip);
   });
 
   it("handles singular day in smart nudge", () => {
-    const msg = selectMessage("smart", "reminder-1", 1);
+    const msg = selectMessage("smart", "reminder-1", testQuip, 1);
     expect(msg).toContain("1 day ");
     expect(msg).not.toContain("1 days");
   });
 
-  it("returns a daily message for non-smart types", () => {
-    const msg = selectMessage("daily", "reminder-abc");
-    expect(typeof msg).toBe("string");
-    expect(msg.length).toBeGreaterThan(10);
+  it("prepends quip to daily messages", () => {
+    const msg = selectMessage("daily", "reminder-abc", testQuip);
+    expect(msg).toContain(testQuip);
+    expect(msg.startsWith(testQuip)).toBe(true);
   });
 
   it("returns same message for same reminder on same day (deterministic)", () => {
-    const msg1 = selectMessage("daily", "test-id-123");
-    const msg2 = selectMessage("daily", "test-id-123");
+    const msg1 = selectMessage("daily", "test-id-123", testQuip);
+    const msg2 = selectMessage("daily", "test-id-123", testQuip);
     expect(msg1).toBe(msg2);
   });
 
@@ -105,7 +110,7 @@ describe("selectMessage", () => {
     // Not guaranteed but highly likely with different IDs
     const messages = new Set<string>();
     for (let i = 0; i < 10; i++) {
-      messages.add(selectMessage("daily", `reminder-${i}-${Math.random()}`));
+      messages.add(selectMessage("daily", `reminder-${i}-${Math.random()}`, testQuip));
     }
     expect(messages.size).toBeGreaterThan(1);
   });
