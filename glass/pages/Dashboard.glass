@@ -1,5 +1,5 @@
 === Glass Unit ===
-id: frontend.dashboard
+id: pages.Dashboard
 version: 0.1.0
 language: typescript
 
@@ -16,7 +16,7 @@ approvalStatus: approved
 === Contract ===
 requires:
   - "User is authenticated (redirects to /login otherwise)"
-  - "GET /api/entries endpoint supports pagination, search, and date filtering"
+  - "GET /api/entries endpoint supports pagination, search, date filtering, and timelineView"
 guarantees:
   on_success:
     - "Timeline shows digests for dates that have them, individual entries for undigested dates"

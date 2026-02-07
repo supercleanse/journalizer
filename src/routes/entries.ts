@@ -50,6 +50,7 @@ entries.get("/", async (c) => {
     excludeType: c.req.query("excludeType"),
     source: c.req.query("source"),
     search: c.req.query("search"),
+    timelineView: c.req.query("timelineView") === "true",
   });
 
   // Attach media records to each entry
