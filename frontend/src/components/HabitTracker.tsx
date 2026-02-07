@@ -28,8 +28,39 @@ export default function HabitTracker({ timezone }: HabitTrackerProps) {
 
   const toggleMutation = useMutation({
     mutationFn: (data: { date: string; logs: { habitId: string; completed: boolean }[] }) =>
-      api.put("/api/habits/logs", data),
-    onSuccess: () => {
+      api.put<{ logs: HabitLog[] }>("/api/habits/logs", data),
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: ["habit-logs", currentDate] });
+      const previous = queryClient.getQueryData<{ logs: HabitLog[] }>(["habit-logs", currentDate]);
+      queryClient.setQueryData<{ logs: HabitLog[] }>(["habit-logs", currentDate], (old) => {
+        const existing = old?.logs ?? [];
+        const updatedMap = new Map(existing.map((l) => [l.habitId, l]));
+        for (const log of data.logs) {
+          const prev = updatedMap.get(log.habitId);
+          if (prev) {
+            updatedMap.set(log.habitId, { ...prev, completed: log.completed });
+          } else {
+            updatedMap.set(log.habitId, {
+              id: "optimistic-" + log.habitId,
+              habitId: log.habitId,
+              userId: "",
+              logDate: data.date,
+              completed: log.completed,
+              source: "web",
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+        return { logs: [...updatedMap.values()] };
+      });
+      return { previous };
+    },
+    onError: (_err, _data, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["habit-logs", currentDate], context.previous);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["habit-logs", currentDate] });
     },
   });
