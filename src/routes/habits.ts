@@ -75,65 +75,8 @@ habitsRouter.post("/", async (c) => {
   return c.json({ habit: { ...habit, isActive: habit.isActive === 1 } }, 201);
 });
 
-const updateHabitSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  question: z.string().min(1).max(500).optional(),
-  sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
-  checkinTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
-    .optional()
-    .nullable(),
-});
-
-// PUT /api/habits/:id — update a habit
-habitsRouter.put("/:id", async (c) => {
-  const userId = c.get("userId");
-  const habitId = c.req.param("id");
-  let body: unknown;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON body" }, 400);
-  }
-
-  const parsed = updateHabitSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ValidationError("Validation failed");
-  }
-
-  const db = createDb(c.env.DB);
-
-  const updateData: Record<string, unknown> = { ...parsed.data };
-  if (typeof updateData.isActive === "boolean") {
-    updateData.isActive = updateData.isActive ? 1 : 0;
-  }
-
-  const habit = await updateHabit(db, habitId, userId, updateData as Parameters<typeof updateHabit>[3]);
-
-  if (!habit) {
-    throw new HabitNotFound();
-  }
-
-  return c.json({ habit: { ...habit, isActive: habit.isActive === 1 } });
-});
-
-// DELETE /api/habits/:id — delete a habit
-habitsRouter.delete("/:id", async (c) => {
-  const userId = c.get("userId");
-  const habitId = c.req.param("id");
-  const db = createDb(c.env.DB);
-
-  const deleted = await deleteHabit(db, habitId, userId);
-  if (!deleted) {
-    throw new HabitNotFound();
-  }
-
-  return c.json({ success: true });
-});
-
 // GET /api/habits/logs — get logs for a date or date range
+// NOTE: /logs routes MUST be defined before /:id to avoid /:id matching "logs"
 habitsRouter.get("/logs", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
@@ -215,6 +158,64 @@ habitsRouter.put("/logs", async (c) => {
   return c.json({
     logs: updatedLogs.map((l) => ({ ...l, completed: l.completed === 1 })),
   });
+});
+
+const updateHabitSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  question: z.string().min(1).max(500).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  isActive: z.boolean().optional(),
+  checkinTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+    .optional()
+    .nullable(),
+});
+
+// PUT /api/habits/:id — update a habit
+habitsRouter.put("/:id", async (c) => {
+  const userId = c.get("userId");
+  const habitId = c.req.param("id");
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const parsed = updateHabitSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError("Validation failed");
+  }
+
+  const db = createDb(c.env.DB);
+
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (typeof updateData.isActive === "boolean") {
+    updateData.isActive = updateData.isActive ? 1 : 0;
+  }
+
+  const habit = await updateHabit(db, habitId, userId, updateData as Parameters<typeof updateHabit>[3]);
+
+  if (!habit) {
+    throw new HabitNotFound();
+  }
+
+  return c.json({ habit: { ...habit, isActive: habit.isActive === 1 } });
+});
+
+// DELETE /api/habits/:id — delete a habit
+habitsRouter.delete("/:id", async (c) => {
+  const userId = c.get("userId");
+  const habitId = c.req.param("id");
+  const db = createDb(c.env.DB);
+
+  const deleted = await deleteHabit(db, habitId, userId);
+  if (!deleted) {
+    throw new HabitNotFound();
+  }
+
+  return c.json({ success: true });
 });
 
 export default habitsRouter;
