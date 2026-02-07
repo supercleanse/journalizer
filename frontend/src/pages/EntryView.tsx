@@ -70,6 +70,9 @@ export default function EntryView() {
   const timezone = useTimezone();
   const entry = data?.entry;
   const isDigest = entry?.entryType === "digest";
+  const hasAudioVideoMedia = entry?.media?.some(
+    (m) => m.mimeType?.startsWith("audio/") || m.mimeType?.startsWith("video/")
+  );
 
   const [showSources, setShowSources] = useState(false);
 
@@ -337,7 +340,7 @@ export default function EntryView() {
                   {regenerateMutation.isPending ? "Re-Generating..." : "Re-Generate"}
                 </button>
               )}
-              {entry.media?.some((m) => m.mimeType?.startsWith("audio/") || m.mimeType?.startsWith("video/")) && (
+              {hasAudioVideoMedia && (
                 <button
                   onClick={() => retranscribeMutation.mutate()}
                   disabled={retranscribeMutation.isPending}
