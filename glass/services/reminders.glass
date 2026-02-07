@@ -25,6 +25,7 @@ guarantees:
     - "Weekly reminders fire on configured dayOfWeek at timeOfDay"
     - "Monthly reminders fire on configured dayOfMonth at timeOfDay"
     - "Smart nudge fires when days since last entry >= smartThreshold"
+    - "Daily/weekly/monthly messages include a cheeky daily quip via getDailyQuip (AI-generated, KV-cached)"
     - "Messages rotate deterministically per reminder per day"
     - "lastSentAt updated after successful message delivery"
     - "Daily digest generated at midnight (00:00-00:14) for previous day"
