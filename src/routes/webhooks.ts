@@ -86,6 +86,16 @@ async function processJournalMessage(
     return;
   }
 
+  // Send immediate acknowledgment so user knows the entry was saved
+  const hasAudioVideo = entryType === "audio" || entryType === "video";
+  await sendTelegramMessage(
+    env,
+    chatId,
+    hasAudioVideo
+      ? "Got it! Your journal entry has been saved. Processing audio..."
+      : "Got it! Your journal entry has been saved."
+  );
+
   await logProcessing(db, {
     id: crypto.randomUUID(),
     entryId,
@@ -207,11 +217,14 @@ async function processJournalMessage(
     }
   }
 
-  await sendTelegramMessage(
-    env,
-    chatId,
-    "Got it! Your journal entry has been saved."
-  );
+  // Send follow-up for audio/video after transcription + polish completes
+  if (hasAudioVideo) {
+    await sendTelegramMessage(
+      env,
+      chatId,
+      "Your audio has been transcribed and polished."
+    );
+  }
 }
 
 // POST /api/webhooks/telegram — inbound messages from Telegram

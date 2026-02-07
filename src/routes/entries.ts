@@ -269,15 +269,15 @@ entries.delete("/:id", async (c) => {
 
 // ── Admin Endpoints ─────────────────────────────────────────────────
 
-// POST /api/entries/:id/retranscribe — re-transcribe audio/video (admin only)
+// POST /api/entries/:id/retranscribe — re-transcribe audio/video
 entries.post("/:id/retranscribe", async (c) => {
   const userId = c.get("userId");
   const entryId = c.req.param("id");
   const db = createDb(c.env.DB);
 
   const user = await getUserById(db, userId);
-  if (!user || user.role !== "admin") {
-    throw AppError.forbidden("Admin access required");
+  if (!user) {
+    throw new EntryNotFound();
   }
 
   const entry = await getEntryById(db, entryId, userId);

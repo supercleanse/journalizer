@@ -56,6 +56,17 @@ export default function EntryView() {
     onError: () => toast.error("Failed to regenerate"),
   });
 
+  const retranscribeMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ entry: Entry }>(`/api/entries/${id}/retranscribe`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["entry", id] });
+      queryClient.invalidateQueries({ queryKey: ["entries"] });
+      toast.success("Re-transcribed successfully");
+    },
+    onError: () => toast.error("Failed to re-transcribe"),
+  });
+
   const timezone = useTimezone();
   const entry = data?.entry;
   const isDigest = entry?.entryType === "digest";
@@ -324,6 +335,15 @@ export default function EntryView() {
                   className="rounded-md px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 disabled:opacity-50"
                 >
                   {regenerateMutation.isPending ? "Re-Generating..." : "Re-Generate"}
+                </button>
+              )}
+              {entry.media?.some((m) => m.mimeType?.startsWith("audio/") || m.mimeType?.startsWith("video/")) && (
+                <button
+                  onClick={() => retranscribeMutation.mutate()}
+                  disabled={retranscribeMutation.isPending}
+                  className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                >
+                  {retranscribeMutation.isPending ? "Re-Transcribing..." : "Re-Transcribe"}
                 </button>
               )}
             </div>

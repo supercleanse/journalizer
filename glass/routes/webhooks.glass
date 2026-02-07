@@ -31,6 +31,8 @@ guarantees:
     - "Entry created before processing_log writes so FK references are valid"
     - "Polished content updated on the entry after AI processing completes"
     - "Journal processing runs in background via waitUntil to avoid webhook timeout"
+    - "Immediate acknowledgment sent after entry creation (before transcription/polish)"
+    - "Follow-up message sent after audio/video transcription and polish completes"
     - "Active habit check-in session intercepted before journal entry processing"
     - "Habit check-in responses parsed as yes/no (y/n/yes/no/t/f/1/0, case-insensitive)"
     - "Valid response records habit log via upsertHabitLog, advances to next question"

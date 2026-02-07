@@ -12,7 +12,7 @@ function buildSystemPrompt(voiceStyle: VoiceStyle, voiceNotes: string | null, di
 
 Your output should be almost identical to the input. If a sentence is grammatically fine, copy it exactly. Do not rephrase, reword, restructure, or "improve" anything. Do not change word choices. Do not add or remove words. Do not add transitions, introductions, or conclusions. Just fix errors and return the text.
 
-You SHOULD add paragraph breaks to improve readability — especially for long blocks of transcribed audio that come in as one chunk. Break into paragraphs at natural topic shifts.
+You SHOULD add paragraph breaks to improve readability — especially for long blocks of transcribed audio that come in as one chunk. Keep paragraphs short: 2-3 sentences maximum. Break at natural topic shifts or when the subject changes.
 ${dictionaryHint || ""}${voiceNotes ? `\nAuthor's notes: "${voiceNotes}"` : ""}
 Return ONLY the cleaned-up text.`;
 }
