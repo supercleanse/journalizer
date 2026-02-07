@@ -3,6 +3,7 @@ import {
   calculatePeriodDates,
   getNextDate,
   isDue,
+  isDueInTimezone,
   formatDateStr,
   getAlignedSendDate,
   getTrailingPeriod,
@@ -91,6 +92,28 @@ describe("isDue", () => {
   it("returns true for today", () => {
     const today = new Date().toISOString().split("T")[0];
     expect(isDue(today)).toBe(true);
+  });
+});
+
+describe("isDueInTimezone", () => {
+  it("returns false for null", () => {
+    expect(isDueInTimezone(null, "America/New_York")).toBe(false);
+  });
+
+  it("returns true for past date in any timezone", () => {
+    expect(isDueInTimezone("2020-01-01", "America/New_York")).toBe(true);
+    expect(isDueInTimezone("2020-01-01", "Asia/Tokyo")).toBe(true);
+  });
+
+  it("returns false for far future date", () => {
+    expect(isDueInTimezone("2099-01-01", "America/New_York")).toBe(false);
+  });
+
+  it("returns true for today in the given timezone", () => {
+    const localDate = new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Chicago",
+    });
+    expect(isDueInTimezone(localDate, "America/Chicago")).toBe(true);
   });
 });
 

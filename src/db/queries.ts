@@ -899,8 +899,20 @@ export async function updateEmailSubscription(
 
 export async function getActiveEmailSubscriptions(db: Database) {
   return db
-    .select()
+    .select({
+      id: emailSubscriptions.id,
+      userId: emailSubscriptions.userId,
+      frequency: emailSubscriptions.frequency,
+      entryTypes: emailSubscriptions.entryTypes,
+      includeImages: emailSubscriptions.includeImages,
+      nextEmailDate: emailSubscriptions.nextEmailDate,
+      lastEmailedAt: emailSubscriptions.lastEmailedAt,
+      userEmail: users.email,
+      userDisplayName: users.displayName,
+      userTimezone: users.timezone,
+    })
     .from(emailSubscriptions)
+    .innerJoin(users, eq(emailSubscriptions.userId, users.id))
     .where(eq(emailSubscriptions.isActive, 1));
 }
 

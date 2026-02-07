@@ -60,6 +60,17 @@ export function isDue(nextDate: string | null): boolean {
 }
 
 /**
+ * Check if a date is due in the given timezone.
+ * Returns true if the current local date in that timezone >= nextDate.
+ */
+export function isDueInTimezone(nextDate: string | null, timezone: string): boolean {
+  if (!nextDate) return false;
+  // en-CA locale gives YYYY-MM-DD format
+  const localDate = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+  return nextDate <= localDate;
+}
+
+/**
  * Get the next calendar-aligned send date for an email subscription.
  * Weekly = next Monday, Monthly = 1st of next month,
  * Quarterly = 1st of next quarter, Yearly = next Jan 1.

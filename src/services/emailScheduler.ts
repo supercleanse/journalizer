@@ -2,14 +2,13 @@ import type { Env } from "../types/env";
 import { createDb } from "../db/index";
 import {
   getActiveEmailSubscriptions,
-  getUserById,
   updateEmailSubscription,
   logProcessing,
 } from "../db/queries";
 import { fetchEntriesForExport, generatePdfWithImages } from "./export";
 import type { ExportOptions, PdfOptions } from "./export";
 import { sendEmail, uint8ArrayToBase64 } from "./email";
-import { getTrailingPeriod, advanceAlignedDate, isDue } from "../lib/period";
+import { getTrailingPeriod, advanceAlignedDate, isDueInTimezone } from "../lib/period";
 
 // Glass contract: failure modes
 export { ResendAPIError } from "../lib/errors";
@@ -28,13 +27,15 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
 
   for (const sub of subscriptions) {
     try {
-      if (!isDue(sub.nextEmailDate)) continue;
+      const userTimezone = sub.userTimezone || "UTC";
+
+      // Check if the send date has arrived in the user's local timezone
+      if (!isDueInTimezone(sub.nextEmailDate, userTimezone)) continue;
+
+      if (!sub.userEmail) continue;
 
       // Calculate the trailing period (e.g. Monday send = previous Mon-Sun)
       const { start, end } = getTrailingPeriod(sub.frequency, sub.nextEmailDate!);
-
-      const user = await getUserById(db, sub.userId);
-      if (!user || !user.email) continue;
 
       const exportOptions: ExportOptions = {
         userId: sub.userId,
@@ -67,8 +68,8 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
       }
 
       const pdfOptions: PdfOptions = {
-        userName: user.displayName || "My Journal",
-        timezone: user.timezone || "UTC",
+        userName: sub.userDisplayName || "My Journal",
+        timezone: userTimezone,
         startDate: start,
         endDate: end,
       };
@@ -80,7 +81,7 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
       const subject = `Your ${frequencyLabel} Journal - ${formatDateRange(start, end)}`;
 
       const html = buildEmailHtml(
-        user.displayName || "there",
+        sub.userDisplayName || "there",
         frequencyLabel,
         start,
         end,
@@ -88,7 +89,7 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
       );
 
       await sendEmail(env.RESEND_API_KEY, fromEmail, {
-        to: user.email,
+        to: sub.userEmail,
         subject,
         html,
         attachments: [
