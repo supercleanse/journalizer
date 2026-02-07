@@ -5,6 +5,7 @@ export interface User {
   telegramLinked: boolean;
   voiceStyle: string;
   voiceNotes: string | null;
+  digestNotifyEmail: boolean;
 }
 
 export interface Entry {

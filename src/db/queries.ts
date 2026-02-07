@@ -83,6 +83,7 @@ export async function updateUser(
     timezone: string;
     role: "user" | "admin";
     stripeCustomerId: string;
+    digestNotifyEmail: number;
   }>
 ) {
   await db

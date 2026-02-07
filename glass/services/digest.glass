@@ -28,7 +28,7 @@ guarantees:
     - "digest_entries join records link digest to all source entries"
     - "user.lastDigestDate updated to prevent duplicate generation"
     - "Token usage logged to processing_log for AI-generated digests"
-    - "Telegram notification sent if user has linked chat"
+    - "Returns polishedContent string on success, null when no entries or on error"
     - "Source entries' media accessible via digest_entries join table"
   on_failure:
     - "Errors logged to processing_log with digest_generated action"

@@ -22,6 +22,7 @@ guarantees:
     - "Profile form: displayName, timezone, voiceStyle (4-option select), voiceNotes (textarea, 500 char limit)"
     - "Telegram section shows link/unlink state: unlinked (button), code displayed (8-char code + bot link), linked (unlink button)"
     - "Bot username rendered dynamically from API response"
+    - "Digest Notifications section: shows Telegram status (auto-enabled when linked), email toggle saves immediately"
     - "Reminders section: list existing with toggle/delete, create new (daily/weekly/monthly/smart)"
     - "Query cache invalidated on all mutations"
     - "Physical Journal section: print subscription management with order history"

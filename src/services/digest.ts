@@ -130,7 +130,7 @@ export async function generateDailyDigest(
   userId: string,
   date: string,
   sendNotification?: (chatId: string, message: string) => Promise<void>
-): Promise<void> {
+): Promise<string | null> {
   const logId = crypto.randomUUID();
 
   try {
@@ -138,11 +138,11 @@ export async function generateDailyDigest(
 
     if (entriesForDate.length === 0) {
       await updateUserLastDigestDate(db, userId, date);
-      return;
+      return null;
     }
 
     const user = await getUserById(db, userId);
-    if (!user) return;
+    if (!user) return null;
 
     const digestId = crypto.randomUUID();
     let polishedContent: string;
@@ -189,13 +189,7 @@ export async function generateDailyDigest(
       }),
     });
 
-    // Notify via Telegram if user has it linked
-    if (user.telegramChatId && sendNotification) {
-      await sendNotification(
-        user.telegramChatId,
-        `Your daily entry for ${date} is ready!`
-      ).catch(() => {});
-    }
+    return polishedContent;
   } catch (error) {
     await logProcessing(db, {
       id: logId,
@@ -207,5 +201,6 @@ export async function generateDailyDigest(
         error: error instanceof Error ? error.message : "Unknown error",
       }),
     }).catch(() => {});
+    return null;
   }
 }

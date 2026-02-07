@@ -18,7 +18,9 @@ requires:
   - "User authenticated"
 guarantees:
   on_success:
-    - "Renders profile, Telegram, reminders, and export sections"
+    - "Renders profile, Telegram, digest notifications, reminders, and export sections"
+    - "Digest Notifications section shows Telegram status and email toggle"
+    - "Email toggle saves immediately via PUT /api/settings"
   on_failure:
     - "Loading state or error toast"
 invariants:
