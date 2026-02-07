@@ -69,7 +69,10 @@ habitsRouter.post("/", async (c) => {
     checkinTime: parsed.data.checkinTime ?? undefined,
   });
 
-  return c.json({ habit: { ...habit, isActive: habit!.isActive === 1 } }, 201);
+  if (!habit) {
+    throw new HabitNotFound("Failed to create habit");
+  }
+  return c.json({ habit: { ...habit, isActive: habit.isActive === 1 } }, 201);
 });
 
 const updateHabitSchema = z.object({
@@ -138,10 +141,17 @@ habitsRouter.get("/logs", async (c) => {
   const startDate = c.req.query("startDate");
   const endDate = c.req.query("endDate");
 
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   let logs;
   if (date) {
+    if (!dateRegex.test(date)) {
+      throw new ValidationError("date must be YYYY-MM-DD");
+    }
     logs = await getHabitLogsForDate(db, userId, date);
   } else if (startDate && endDate) {
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+      throw new ValidationError("startDate and endDate must be YYYY-MM-DD");
+    }
     logs = await getHabitLogsForDateRange(db, userId, startDate, endDate);
   } else {
     return c.json({ error: "Provide date or startDate+endDate" }, 400);
@@ -179,16 +189,27 @@ habitsRouter.put("/logs", async (c) => {
 
   const db = createDb(c.env.DB);
 
+  // Verify all habitIds belong to the authenticated user
+  const userHabits = await listHabits(db, userId);
+  const userHabitIds = new Set(userHabits.map((h) => h.id));
   for (const log of parsed.data.logs) {
-    await upsertHabitLog(db, {
-      id: crypto.randomUUID(),
-      habitId: log.habitId,
-      userId,
-      logDate: parsed.data.date,
-      completed: log.completed ? 1 : 0,
-      source: "web",
-    });
+    if (!userHabitIds.has(log.habitId)) {
+      throw new ValidationError(`Habit ${log.habitId} not found`);
+    }
   }
+
+  await Promise.all(
+    parsed.data.logs.map((log) =>
+      upsertHabitLog(db, {
+        id: crypto.randomUUID(),
+        habitId: log.habitId,
+        userId,
+        logDate: parsed.data.date,
+        completed: log.completed ? 1 : 0,
+        source: "web",
+      })
+    )
+  );
 
   const updatedLogs = await getHabitLogsForDate(db, userId, parsed.data.date);
   return c.json({
