@@ -1025,13 +1025,12 @@ export async function upsertHabitLog(
     source?: string;
   }
 ) {
-  await db
-    .insert(habitLogs)
-    .values(data)
-    .onConflictDoUpdate({
-      target: [habitLogs.habitId, habitLogs.logDate],
-      set: { completed: data.completed, source: data.source ?? "web" },
-    });
+  const src = data.source ?? "web";
+  await db.run(sql`
+    INSERT INTO habit_logs (id, habit_id, user_id, log_date, completed, source)
+    VALUES (${data.id}, ${data.habitId}, ${data.userId}, ${data.logDate}, ${data.completed}, ${src})
+    ON CONFLICT(habit_id, log_date) DO UPDATE SET completed = ${data.completed}, source = ${src}
+  `);
 }
 
 export async function getActiveHabitsWithCheckinTime(db: Database) {
