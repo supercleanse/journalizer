@@ -540,9 +540,8 @@ export default function Settings() {
                 type="button"
                 onClick={() => {
                   const newVal = !form.digestNotifyEmail;
-                  const updated = { ...form, digestNotifyEmail: newVal };
-                  setForm(updated);
-                  updateMutation.mutate(updated);
+                  setForm({ ...form, digestNotifyEmail: newVal });
+                  updateMutation.mutate({ digestNotifyEmail: newVal } as typeof form);
                 }}
                 className={`relative h-5 w-9 rounded-full transition-colors ${
                   form.digestNotifyEmail ? "bg-green-500" : "bg-gray-300"

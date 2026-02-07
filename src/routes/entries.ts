@@ -23,6 +23,10 @@ import { transcribeFromR2 } from "../services/transcription";
 import { generateDailyDigest } from "../services/digest";
 import { sendTelegramMessage } from "../services/telegram";
 import {
+  generateDigestNotificationContent,
+  formatDigestTelegramMessage,
+} from "../services/digestNotification";
+import {
   AppError,
   ValidationError,
   EntryNotFound,
@@ -374,15 +378,23 @@ entries.post("/regenerate-digest", async (c) => {
     await deleteEntry(db, digest.id, userId);
   }
 
-  await generateDailyDigest(
-    c.env,
-    db,
-    userId,
-    date,
-    async (chatId, message) => {
-      await sendTelegramMessage(c.env, chatId, message);
+  const digestContent = await generateDailyDigest(c.env, db, userId, date);
+
+  // Send enhanced notification if digest was created
+  if (digestContent && user.telegramChatId) {
+    try {
+      const notifContent = await generateDigestNotificationContent(
+        c.env,
+        userId,
+        date,
+        digestContent
+      );
+      const telegramMsg = formatDigestTelegramMessage(date, notifContent);
+      await sendTelegramMessage(c.env, user.telegramChatId, telegramMsg);
+    } catch {
+      // Notification failure is non-fatal
     }
-  );
+  }
 
   return c.json({ success: true, date });
 });

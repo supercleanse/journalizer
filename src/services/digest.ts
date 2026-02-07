@@ -128,8 +128,7 @@ export async function generateDailyDigest(
   env: { ANTHROPIC_API_KEY: string; TELEGRAM_BOT_TOKEN: string },
   db: Database,
   userId: string,
-  date: string,
-  sendNotification?: (chatId: string, message: string) => Promise<void>
+  date: string
 ): Promise<string | null> {
   const logId = crypto.randomUUID();
 

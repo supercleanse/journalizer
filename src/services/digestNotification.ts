@@ -85,7 +85,12 @@ export async function generateDigestNotificationContent(
   // Check KV cache
   try {
     const cached = await env.KV.get(kvKey);
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (typeof parsed.quip === "string" && Array.isArray(parsed.synopsis)) {
+        return parsed;
+      }
+    }
   } catch {
     // KV failure — continue to generation/fallback
   }
@@ -125,13 +130,14 @@ async function callHaikuForDigestNotification(
       ? digestContent.slice(0, 2000) + "..."
       : digestContent;
 
-  const formatted = new Date(dateStr + "T12:00:00").toLocaleDateString(
+  const formatted = new Date(dateStr + "T12:00:00Z").toLocaleDateString(
     "en-US",
     {
       weekday: "long",
       month: "long",
       day: "numeric",
       year: "numeric",
+      timeZone: "UTC",
     }
   );
 
@@ -171,7 +177,10 @@ async function callHaikuForDigestNotification(
 
   return {
     quip: parsed.quip.length > 300 ? parsed.quip.slice(0, 300) : parsed.quip,
-    synopsis: parsed.synopsis.slice(0, 3).map(String),
+    synopsis: parsed.synopsis.slice(0, 3).map((s: unknown) => {
+      const str = String(s);
+      return str.length > 200 ? str.slice(0, 200) : str;
+    }),
   };
 }
 
