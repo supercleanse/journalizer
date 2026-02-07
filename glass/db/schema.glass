@@ -30,6 +30,9 @@ invariants:
   - "Every media record references a valid entry and user"
   - "Every user has a valid role ('user' or 'admin') enforced by CHECK constraint"
   - "D1 stores only text and metadata — no binary blobs"
+  - "Every habit belongs to exactly one user (habits.user_id is NOT NULL)"
+  - "Every habit log references a valid habit and user"
+  - "Habit logs are unique per (habit_id, log_date) — no duplicate daily entries"
 fails:
   UniqueConstraintViolation: "Return error with conflicting field name"
   ForeignKeyViolation: "Return error identifying the missing parent record"

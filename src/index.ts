@@ -14,6 +14,7 @@ import remindersRoutes from "./routes/reminders";
 import exportRoutes from "./routes/exportRoutes";
 import printRoutes from "./routes/printRoutes";
 import emailRoutes from "./routes/emailRoutes";
+import habitsRoutes from "./routes/habits";
 import webhooksRoutes from "./routes/webhooks";
 import { handleCron } from "./services/reminders";
 import { handlePrintScheduler } from "./services/printScheduler";
@@ -60,6 +61,7 @@ app.route("/api/reminders", remindersRoutes);
 app.route("/api/export", exportRoutes);
 app.route("/api/print", printRoutes);
 app.route("/api/email", emailRoutes);
+app.route("/api/habits", habitsRoutes);
 
 // Serve frontend SPA for all non-API routes
 app.get("*", async (c) => {

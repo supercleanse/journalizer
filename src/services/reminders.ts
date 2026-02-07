@@ -7,6 +7,8 @@ import {
   getLastEntryDatesByUserIds,
   updateReminderLastSent,
   logProcessing,
+  getActiveHabitsWithCheckinTime,
+  getHabitLogsForDate,
 } from "../db/queries";
 import { sendTelegramMessage } from "./telegram";
 import { generateDailyDigest } from "./digest";
@@ -20,6 +22,16 @@ import { sendEmail } from "./email";
 
 // Glass contract: failure modes (soft failures in cron loop)
 export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid, DigestGenerationFailed } from "../lib/errors";
+
+export interface HabitCheckinSession {
+  userId: string;
+  habitIds: string[];
+  questions: string[];
+  names: string[];
+  currentIndex: number;
+  answers: Record<string, boolean>;
+  date: string;
+}
 
 const DAILY_MESSAGES = [
   "Hey! What happened today? Just reply to this message.",
@@ -344,5 +356,107 @@ export async function handleCron(env: Env): Promise<void> {
         }),
       }).catch(() => {});
     }
+  }
+
+  // ── Habit Check-Ins ──────────────────────────────────────────────
+  try {
+    const habitsWithCheckin = await getActiveHabitsWithCheckinTime(db);
+    if (habitsWithCheckin.length === 0) return;
+
+    // Group habits by userId
+    const habitsByUser = new Map<string, typeof habitsWithCheckin>();
+    for (const habit of habitsWithCheckin) {
+      const list = habitsByUser.get(habit.userId) ?? [];
+      list.push(habit);
+      habitsByUser.set(habit.userId, list);
+    }
+
+    // Fetch all users who have habits with check-in times
+    const habitUserIds = [...habitsByUser.keys()];
+    const habitUsersArr = await getUsersByIds(db, habitUserIds);
+    const habitUsersMap = new Map(habitUsersArr.map((u) => [u.id, u]));
+
+    for (const [userId, userHabits] of habitsByUser) {
+      try {
+        const user = habitUsersMap.get(userId);
+        const chatId = user?.telegramChatId;
+        if (!user || !chatId) continue;
+
+        let timezone = user.timezone || "UTC";
+        let local;
+        try {
+          local = getUserLocalTime(now, timezone);
+        } catch {
+          timezone = "UTC";
+          local = getUserLocalTime(now, timezone);
+        }
+
+        // Filter habits whose checkinTime falls within the current 15-min window
+        const dueHabits = userHabits.filter((h) =>
+          timeMatches(h.checkinTime, local.hour, local.minute)
+        );
+        if (dueHabits.length === 0) continue;
+
+        // Skip if a session is already active for this chat
+        const sessionKey = `habit_checkin:${chatId}`;
+        const existingSession = await env.KV.get(sessionKey);
+        if (existingSession) continue;
+
+        // Skip habits already answered today
+        const todayLogs = await getHabitLogsForDate(db, userId, local.dateString);
+        const answeredHabitIds = new Set(todayLogs.map((l) => l.habitId));
+        const unansweredHabits = dueHabits.filter((h) => !answeredHabitIds.has(h.id));
+        if (unansweredHabits.length === 0) continue;
+
+        // Create KV session
+        const session: HabitCheckinSession = {
+          userId,
+          habitIds: unansweredHabits.map((h) => h.id),
+          questions: unansweredHabits.map((h) => h.question),
+          names: unansweredHabits.map((h) => h.name),
+          currentIndex: 0,
+          answers: {},
+          date: local.dateString,
+        };
+        await env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 });
+
+        // Send first question
+        await sendTelegramMessage(
+          env,
+          chatId,
+          `Habit check-in time!\n\n${session.questions[0]}`
+        );
+
+        await logProcessing(db, {
+          id: crypto.randomUUID(),
+          action: "habit_checkin_started",
+          status: "success",
+          details: JSON.stringify({
+            userId,
+            habitCount: unansweredHabits.length,
+            date: local.dateString,
+          }),
+        });
+      } catch (err) {
+        await logProcessing(db, {
+          id: crypto.randomUUID(),
+          action: "habit_checkin_started",
+          status: "error",
+          details: JSON.stringify({
+            userId,
+            error: err instanceof Error ? err.message : "Unknown error",
+          }),
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    await logProcessing(db, {
+      id: crypto.randomUUID(),
+      action: "habit_checkin_cron",
+      status: "error",
+      details: JSON.stringify({
+        error: err instanceof Error ? err.message : "Unknown error",
+      }),
+    }).catch(() => {});
   }
 }

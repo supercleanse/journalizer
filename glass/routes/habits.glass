@@ -1,0 +1,38 @@
+=== Glass Unit ===
+id: routes.habits
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: CRUD API for habit definitions and daily habit log management. Users can create, update, delete habits and record daily boolean completions via the web UI or Telegram check-in.
+source:
+  kind: prd
+  reference: "Habits Feature — API Routes"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User is authenticated via authMiddleware"
+  - "Request body is valid JSON matching Zod schemas"
+guarantees:
+  on_success:
+    - "GET /api/habits returns all habits for the authenticated user ordered by sortOrder"
+    - "POST /api/habits creates a habit and returns it with id"
+    - "PUT /api/habits/:id updates the specified habit (name, question, sortOrder, isActive, checkinTime)"
+    - "DELETE /api/habits/:id deletes the habit and cascades to habit_logs"
+    - "GET /api/habits/logs returns logs for a date or date range"
+    - "PUT /api/habits/logs batch-upserts logs for a single date (idempotent)"
+    - "isActive boolean is converted to integer (0/1) for D1 storage"
+    - "checkinTime is validated as HH:MM format"
+  on_failure:
+    - "Invalid input returns 400 with validation details"
+    - "Habit not found returns 404"
+invariants:
+  - "Users can only access their own habits (userId filter on every query)"
+  - "Habit log upsert prevents duplicate entries per (habit_id, log_date)"
+fails:
+  ValidationError: "Return 400 with error message"
+  HabitNotFound: "Return 404"

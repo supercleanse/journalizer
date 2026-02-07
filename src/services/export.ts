@@ -15,11 +15,17 @@ export interface ExportOptions {
   includeMultimedia: boolean;
 }
 
+export interface HabitData {
+  habits: { id: string; name: string }[];
+  logsByDate: Record<string, Record<string, boolean>>; // date -> habitId -> completed
+}
+
 export interface PdfOptions {
   userName: string;
   timezone: string;
   startDate?: string;
   endDate?: string;
+  habitData?: HabitData;
 }
 
 // Memory limits for Cloudflare Workers (128MB)
@@ -253,6 +259,37 @@ function formatSource(source: string): string {
   return map[source] || source;
 }
 
+// ── Habit rendering helpers ──
+
+/** Render habit completion grid for a single date (short exports) */
+function renderHabitGridForDate(habitData: HabitData, date: string): string[] {
+  const dateLogs = habitData.logsByDate[date];
+  if (!dateLogs) return [];
+
+  const lines: string[] = ["--- Habits ---"];
+  for (const habit of habitData.habits) {
+    const completed = dateLogs[habit.id];
+    if (completed === undefined) continue;
+    const mark = completed ? "[x]" : "[ ]";
+    lines.push(`${mark} ${habit.name}`);
+  }
+  return lines.length > 1 ? lines : [];
+}
+
+/** Render habit summary with completion counts (long exports) */
+function renderHabitSummary(habitData: HabitData, totalDays: number): string[] {
+  const lines: string[] = [];
+  for (const habit of habitData.habits) {
+    let completedDays = 0;
+    for (const dateLogs of Object.values(habitData.logsByDate)) {
+      if (dateLogs[habit.id]) completedDays++;
+    }
+    const pct = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
+    lines.push(`${habit.name}: ${completedDays}/${totalDays} days (${pct}%)`);
+  }
+  return lines;
+}
+
 // ── PDF generation ──
 
 interface PageContent {
@@ -331,10 +368,35 @@ export function generatePdfWithImages(entries: ExportEntry[], options: PdfOption
 
   const contentBlocks: ContentBlock[] = [];
 
-  for (const entry of entries) {
+  // Determine if this is a short export (<=7 days) for habit display mode
+  const habitData = options.habitData;
+  const uniqueDates = [...new Set(entries.map((e) => e.entryDate))];
+  const isShortExport = uniqueDates.length <= 7;
+  let lastEntryDate = "";
+
+  for (let ei = 0; ei < entries.length; ei++) {
+    const entry = entries[ei];
     const content = entry.polishedContent || entry.rawContent || "";
     const hasContent = content.trim().length > 0;
     const hasImages = entry.imageData.size > 0;
+
+    // Before processing this entry, check if we've moved to a new date
+    // and need to insert habit grid for the previous date (short export only)
+    if (
+      habitData &&
+      isShortExport &&
+      lastEntryDate &&
+      entry.entryDate !== lastEntryDate
+    ) {
+      const habitLines = renderHabitGridForDate(habitData, lastEntryDate);
+      if (habitLines.length > 0) {
+        for (const line of habitLines) {
+          contentBlocks.push({ type: "text", lines: [prepareText(line)] });
+        }
+        contentBlocks.push({ type: "text", lines: [""] });
+      }
+    }
+    lastEntryDate = entry.entryDate;
 
     // Skip entries with no content and no images
     if (!hasContent && !hasImages) continue;
@@ -392,6 +454,32 @@ export function generatePdfWithImages(entries: ExportEntry[], options: PdfOption
 
     // Spacing after entry
     contentBlocks.push({ type: "text", lines: [""] });
+  }
+
+  // Insert habit grid for the last date (short export)
+  if (habitData && isShortExport && lastEntryDate) {
+    const habitLines = renderHabitGridForDate(habitData, lastEntryDate);
+    if (habitLines.length > 0) {
+      for (const line of habitLines) {
+        contentBlocks.push({ type: "text", lines: [prepareText(line)] });
+      }
+      contentBlocks.push({ type: "text", lines: [""] });
+    }
+  }
+
+  // Habit summary for long exports (>7 days)
+  if (habitData && !isShortExport && habitData.habits.length > 0) {
+    const summaryLines = renderHabitSummary(habitData, uniqueDates.length);
+    if (summaryLines.length > 0) {
+      contentBlocks.push({ type: "text", lines: [""] });
+      contentBlocks.push({
+        type: "heading",
+        lines: [prepareText("Habit Summary")],
+      });
+      for (const line of summaryLines) {
+        contentBlocks.push({ type: "text", lines: [prepareText(line)] });
+      }
+    }
   }
 
   // Build content pages from blocks

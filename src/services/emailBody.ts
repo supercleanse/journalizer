@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ExportEntry } from "./export";
+import type { ExportEntry, HabitData } from "./export";
 
 export interface EmailBodyStats {
   daysJournaled: number;
@@ -131,6 +131,27 @@ function renderStatsHtml(stats: EmailBodyStats): string {
   </div>`;
 }
 
+function renderHabitStatsHtml(habitData: HabitData, totalDays: number): string {
+  if (habitData.habits.length === 0) return "";
+
+  const rows = habitData.habits.map((habit) => {
+    let completedDays = 0;
+    for (const dateLogs of Object.values(habitData.logsByDate)) {
+      if (dateLogs[habit.id]) completedDays++;
+    }
+    const pct = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
+    const name = escapeHtml(habit.name);
+    return `<tr><td style="padding: 4px 12px 4px 0; color: #4a4a4a;">${name}</td><td style="padding: 4px 0; color: #1a1a1a; font-weight: 600;">${completedDays}/${totalDays} days (${pct}%)</td></tr>`;
+  });
+
+  return `<div style="margin: 20px 0;">
+    <p style="color: #1a1a1a; font-weight: 600; font-size: 14px; margin-bottom: 8px;">Habit Tracking</p>
+    <table style="font-size: 14px; border-collapse: collapse;">
+      ${rows.join("\n      ")}
+    </table>
+  </div>`;
+}
+
 export async function buildPersonalizedEmailHtml(
   apiKey: string | undefined,
   entries: ExportEntry[],
@@ -139,6 +160,7 @@ export async function buildPersonalizedEmailHtml(
     periodLabel: string;
     startDate: string;
     endDate: string;
+    habitData?: HabitData;
   },
 ): Promise<string> {
   const stats = computeEntryStats(entries);
@@ -176,6 +198,10 @@ export async function buildPersonalizedEmailHtml(
   </div>`
       : "";
 
+  const habitHtml = options.habitData
+    ? renderHabitStatsHtml(options.habitData, stats.daysJournaled)
+    : "";
+
   return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
   <h2 style="color: #1a1a1a;">Your ${safePeriod} Journal</h2>
   <p style="color: #4a4a4a; line-height: 1.6;">
@@ -186,6 +212,7 @@ export async function buildPersonalizedEmailHtml(
   </p>
   ${renderStatsHtml(stats)}
   ${synopsisHtml}
+  ${habitHtml}
   <p style="color: #4a4a4a; line-height: 1.6;">
     Your journal PDF for <strong>${formatDate(options.startDate)}</strong> through <strong>${formatDate(options.endDate)}</strong> is attached.
   </p>

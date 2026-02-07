@@ -25,6 +25,7 @@ guarantees:
     - "PDF uses Courier font, 10pt, A4 pages with proper pagination"
     - "Content-Disposition header sets date-stamped filename"
     - "Entries prefer polishedContent over rawContent, fall back to '(no content)'"
+    - "Habit data (habits + logs for date range) fetched and passed to PDF generator when user has habits"
   on_failure:
     - "Database query errors propagate to global error handler"
 invariants:

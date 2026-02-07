@@ -31,17 +31,26 @@ guarantees:
     - "Entry created before processing_log writes so FK references are valid"
     - "Polished content updated on the entry after AI processing completes"
     - "Journal processing runs in background via waitUntil to avoid webhook timeout"
+    - "Active habit check-in session intercepted before journal entry processing"
+    - "Habit check-in responses parsed as yes/no (y/n/yes/no/t/f/1/0, case-insensitive)"
+    - "Valid response records habit log via upsertHabitLog, advances to next question"
+    - "After final question, session deleted from KV and summary sent"
+    - "/cancel command aborts active check-in session"
+    - "Unrecognized responses during check-in prompt user to reply yes or no"
   on_failure:
     - "Invalid webhook secret returns 403"
     - "Unlinked users receive instructional message"
     - "Media download failures logged but do not prevent entry creation"
     - "AI polish failures fall back to raw content"
     - "Transcription failures do not prevent entry creation"
+    - "Habit check-in KV failures fall through to normal journal entry processing"
 invariants:
   - "Webhook always returns { ok: true } to Telegram (except auth failure)"
   - "Linking codes deleted from KV after successful use"
   - "Linking attempts rate-limited to 10 per hour per chat ID"
   - "Entry date set to current UTC date (no time component)"
+  - "Habit check-in state stored in KV with key habit_checkin:{chatId}"
+  - "Check-in intercept occurs after user lookup, before journal entry processing"
 advisories:
   - "POST /api/webhooks/lulu returns 501 Not Implemented (Phase 2 placeholder)"
 fails:

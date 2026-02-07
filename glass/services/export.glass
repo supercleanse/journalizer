@@ -29,6 +29,9 @@ guarantees:
     - "ZIP contains a PDF plus audio/video files when multimedia is requested"
     - "Memory limits are enforced: max 50 images, 5MB per image, 20 multimedia files"
     - "Entries are filtered by date range and entry type when specified"
+    - "Short exports (<=7 days) render habit completion grid after each date's entries"
+    - "Long exports (>7 days) render habit summary section at end with completion counts and percentages"
+    - "Habit data is optional; PDF renders normally without it"
   on_failure:
     - "Export errors are propagated to caller for user-facing error messages"
 invariants:

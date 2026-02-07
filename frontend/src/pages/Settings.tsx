@@ -9,7 +9,7 @@ import Header from "../components/Header";
 import ExportForm from "../components/ExportForm";
 import EmailSubscriptionForm from "../components/EmailSubscriptionForm";
 import { api } from "../lib/api";
-import type { User, Reminder, DictionaryTerm } from "../types";
+import type { User, Reminder, DictionaryTerm, Habit } from "../types";
 
 const voiceStyles = [
   { value: "natural", label: "Natural" },
@@ -344,6 +344,49 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
     },
     onError: () => toast.error("Failed to update reminder"),
+  });
+
+  // ── Habits ──
+  const { data: habitsData } = useQuery({
+    queryKey: ["habits"],
+    queryFn: () => api.get<{ habits: Habit[] }>("/api/habits"),
+  });
+
+  const userHabits = habitsData?.habits ?? [];
+
+  const [newHabit, setNewHabit] = useState({
+    name: "",
+    question: "",
+    checkinTime: "",
+  });
+
+  const createHabitMutation = useMutation({
+    mutationFn: (data: { name: string; question: string; checkinTime?: string | null }) =>
+      api.post("/api/habits", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+      setNewHabit({ name: "", question: "", checkinTime: "" });
+      toast.success("Habit created");
+    },
+    onError: () => toast.error("Failed to create habit"),
+  });
+
+  const deleteHabitMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/habits/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+      toast.success("Habit deleted");
+    },
+    onError: () => toast.error("Failed to delete habit"),
+  });
+
+  const toggleHabitMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      api.put(`/api/habits/${id}`, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+    },
+    onError: () => toast.error("Failed to update habit"),
   });
 
   if (isLoading) {
@@ -840,6 +883,121 @@ export default function Settings() {
               >
                 Add
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Habits */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-1 text-lg font-medium text-gray-900">
+            Habits
+          </h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Track daily habits with yes/no check-ins. Optionally get asked via Telegram at a set time.
+          </p>
+
+          {/* Existing habits */}
+          {userHabits.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {userHabits.map((h) => (
+                <div
+                  key={h.id}
+                  className="flex items-center justify-between rounded-md border border-gray-100 px-3 py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() =>
+                        toggleHabitMutation.mutate({
+                          id: h.id,
+                          isActive: !h.isActive,
+                        })
+                      }
+                      className={`h-4 w-8 rounded-full transition-colors ${
+                        h.isActive ? "bg-green-500" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`block h-3 w-3 rounded-full bg-white shadow transition-transform ${
+                          h.isActive
+                            ? "translate-x-4"
+                            : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                    <div className="text-sm">
+                      <span className="font-medium text-gray-700">
+                        {h.name}
+                      </span>
+                      <span className="ml-2 text-gray-400">
+                        {h.question}
+                      </span>
+                      {h.checkinTime && (
+                        <span className="ml-2 text-xs text-blue-500">
+                          Telegram at {h.checkinTime}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => deleteHabitMutation.mutate(h.id)}
+                    className="text-xs text-gray-400 hover:text-red-500"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add new habit form */}
+          <div className="space-y-3 border-t border-gray-100 pt-4">
+            <p className="text-sm font-medium text-gray-600">Add Habit</p>
+
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={newHabit.name}
+                onChange={(e) => setNewHabit({ ...newHabit, name: e.target.value })}
+                placeholder="Habit name (e.g., Exercise)"
+                className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+              />
+              <input
+                type="text"
+                value={newHabit.question}
+                onChange={(e) => setNewHabit({ ...newHabit, question: e.target.value })}
+                placeholder="Question (e.g., Did you exercise today?)"
+                className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">Telegram check-in:</label>
+                  <input
+                    type="time"
+                    value={newHabit.checkinTime}
+                    onChange={(e) => setNewHabit({ ...newHabit, checkinTime: e.target.value })}
+                    className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newHabit.name.trim() && newHabit.question.trim()) {
+                      createHabitMutation.mutate({
+                        name: newHabit.name.trim(),
+                        question: newHabit.question.trim(),
+                        checkinTime: newHabit.checkinTime || null,
+                      });
+                    }
+                  }}
+                  disabled={!newHabit.name.trim() || !newHabit.question.trim() || createHabitMutation.isPending}
+                  className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+              <p className="text-xs text-gray-400">
+                Leave time empty for web-only tracking (no Telegram questions).
+              </p>
             </div>
           </div>
         </div>

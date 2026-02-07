@@ -1,0 +1,32 @@
+=== Glass Unit ===
+id: components.HabitTracker
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Interactive sidebar widget for daily habit tracking. Displays habit checkboxes with date navigation arrows, allowing users to toggle completion status for any day.
+source:
+  kind: prd
+  reference: "Habits Feature — Sidebar Widget"
+parent: pages.Dashboard
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "User has at least one habit defined"
+  - "API endpoints GET /api/habits and GET/PUT /api/habits/logs are available"
+guarantees:
+  on_success:
+    - "Shows list of active habits with checkboxes for the selected date"
+    - "Left/right arrows navigate between dates (default: today)"
+    - "Checkbox toggle calls PUT /api/habits/logs and updates UI optimistically"
+    - "Shows 'Set up habits in Settings' link when no habits exist"
+  on_failure:
+    - "Network errors shown via toast notification"
+invariants:
+  - "Date defaults to today in user's timezone"
+  - "Only active habits are displayed"
+fails:
+  NetworkError: "Toast error, retain previous state"

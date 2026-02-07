@@ -23,6 +23,7 @@ guarantees:
     - "generateEmailAIContent returns a personalized quip and 3-4 bullet synopsis"
     - "buildPersonalizedEmailHtml always returns valid HTML regardless of AI availability"
     - "All user-derived and AI-generated text is HTML-escaped"
+    - "Habit completion stats included in email when habitData is provided"
   on_failure:
     - "AI failure falls back to simple template with stats bar"
     - "Email always renders and sends"
