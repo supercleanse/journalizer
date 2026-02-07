@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { computeEntryStats, buildPersonalizedEmailHtml } from "../src/services/emailBody";
 import type { ExportEntry } from "../src/services/export";
 
@@ -143,6 +143,33 @@ describe("buildPersonalizedEmailHtml", () => {
     expect(html).toContain("3</strong> days journaled");
     expect(html).toContain("3</strong> entries");
     expect(html).toContain("2</strong> photos");
+  });
+
+  it("falls back to simple template when AI call fails", async () => {
+    // Mock the Anthropic SDK to throw
+    vi.mock("@anthropic-ai/sdk", () => ({
+      default: class {
+        messages = {
+          create: () => Promise.reject(new Error("API quota exceeded")),
+        };
+      },
+    }));
+
+    const entries = [makeEntry()];
+    const html = await buildPersonalizedEmailHtml("fake-api-key", entries, {
+      name: "Eve",
+      periodLabel: "Weekly",
+      startDate: "2025-01-13",
+      endDate: "2025-01-19",
+    });
+
+    // Should still render valid HTML with stats, just no AI content
+    expect(html).toContain("Your Weekly Journal");
+    expect(html).toContain("Hi Eve,");
+    expect(html).toContain("<strong>1</strong> entry");
+    expect(html).not.toContain("Period Highlights");
+
+    vi.restoreAllMocks();
   });
 
   it("includes unsubscribe footer", async () => {

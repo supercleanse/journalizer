@@ -83,7 +83,8 @@ Rules for the synopsis:
   const textBlock = message.content.find((block) => block.type === "text");
   if (!textBlock?.text) throw new Error("Empty AI response for email body");
 
-  const parsed = JSON.parse(textBlock.text);
+  const raw = textBlock.text.replace(/^```(?:json)?\n?|\n?```$/g, "").trim();
+  const parsed = JSON.parse(raw);
   if (typeof parsed.quip !== "string" || !Array.isArray(parsed.synopsis)) {
     throw new Error("Invalid AI response structure for email body");
   }
@@ -99,7 +100,8 @@ function escapeHtml(s: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function formatDate(dateStr: string): string {
