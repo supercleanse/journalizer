@@ -21,6 +21,7 @@ guarantees:
   on_success:
     - "All queries are parameterized (no SQL injection possible)"
     - "List queries support pagination via limit/offset"
+    - "listEntries timelineView mode hides individual entries for dates that have a digest"
     - "All mutations filter by userId to enforce data isolation"
     - "createUser accepts optional role parameter (defaults to 'user')"
     - "updateUser accepts optional role parameter for admin promotion/demotion"

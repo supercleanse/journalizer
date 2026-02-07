@@ -103,6 +103,7 @@ export interface ListEntriesOptions {
   excludeType?: string;
   source?: string;
   search?: string;
+  timelineView?: boolean;
 }
 
 export async function listEntries(
@@ -110,7 +111,7 @@ export async function listEntries(
   userId: string,
   options: ListEntriesOptions = {}
 ) {
-  const { limit = 20, offset = 0, startDate, endDate, entryType, excludeType, source, search } = options;
+  const { limit = 20, offset = 0, startDate, endDate, entryType, excludeType, source, search, timelineView } = options;
 
   const conditions = [eq(entries.userId, userId)];
 
@@ -119,6 +120,15 @@ export async function listEntries(
   if (entryType) conditions.push(eq(entries.entryType, entryType));
   if (excludeType) conditions.push(ne(entries.entryType, excludeType));
   if (source) conditions.push(eq(entries.source, source));
+  if (timelineView) {
+    // Show digests + individual entries only for dates without a digest
+    conditions.push(
+      or(
+        eq(entries.entryType, "digest"),
+        sql`${entries.entryDate} NOT IN (SELECT DISTINCT ${entries.entryDate} FROM ${entries} WHERE ${entries.userId} = ${userId} AND ${entries.entryType} = 'digest')`
+      ) ?? sql`1=0`
+    );
+  }
   if (search) {
     // Escape LIKE wildcards to prevent pattern injection
     const escaped = search.replace(/%/g, "\\%").replace(/_/g, "\\_");

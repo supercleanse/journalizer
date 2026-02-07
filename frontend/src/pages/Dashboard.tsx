@@ -15,8 +15,6 @@ interface EntriesResponse {
   limit: number;
 }
 
-type FilterMode = "all" | "digests" | "individual";
-
 function calculateStreak(dates: string[]): number {
   if (dates.length === 0) return 0;
   const unique = [...new Set(dates)].sort().reverse();
@@ -43,7 +41,6 @@ export default function Dashboard() {
   const timezone = useTimezone();
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const limit = 20;
@@ -54,9 +51,11 @@ export default function Dashboard() {
       offset: String(offset),
       limit: String(limit),
     });
-    if (debouncedSearch) params.set("search", debouncedSearch);
-    if (filterMode === "digests") params.set("entryType", "digest");
-    if (filterMode === "individual") params.set("excludeType", "digest");
+    if (debouncedSearch) {
+      params.set("search", debouncedSearch);
+    } else {
+      params.set("timelineView", "true");
+    }
     if (selectedDate) {
       const d = format(selectedDate, "yyyy-MM-dd");
       params.set("startDate", d);
@@ -72,7 +71,7 @@ export default function Dashboard() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ["entries", debouncedSearch, selectedDate?.toISOString(), filterMode],
+    queryKey: ["entries", debouncedSearch, selectedDate?.toISOString()],
     queryFn: ({ pageParam = 1 }) =>
       api.get<EntriesResponse>(`/api/entries?${buildParams(pageParam)}`),
     getNextPageParam: (lastPage, allPages) => {
@@ -133,27 +132,6 @@ export default function Dashboard() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-gray-900">Your Journal</h1>
-        </div>
-
-        {/* Filter tabs */}
-        <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1">
-          {(["all", "digests", "individual"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setFilterMode(mode)}
-              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                filterMode === mode
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {mode === "all"
-                ? "All"
-                : mode === "digests"
-                  ? "Daily"
-                  : "Individual"}
-            </button>
-          ))}
         </div>
 
         {/* Search */}
