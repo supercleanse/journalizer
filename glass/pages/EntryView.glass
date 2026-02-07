@@ -23,6 +23,7 @@ guarantees:
     - "Daily Combined Entries show 'View individual entries' toggle"
     - "Daily Combined Entries show 'Re-Generate' button that triggers digest regeneration"
     - "Edit and delete actions available"
+    - "Re-Transcribe button shown for entries with audio/video media"
   on_failure:
     - "404 message for missing entries"
 invariants:

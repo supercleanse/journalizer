@@ -86,6 +86,20 @@ async function processJournalMessage(
     return;
   }
 
+  // Send immediate acknowledgment so user knows the entry was saved
+  const hasAudioVideo = entryType === "audio" || entryType === "video";
+  try {
+    await sendTelegramMessage(
+      env,
+      chatId,
+      hasAudioVideo
+        ? "Got it! Your journal entry has been saved. Processing media..."
+        : "Got it! Your journal entry has been saved."
+    );
+  } catch {
+    // Non-critical — continue processing even if ACK fails
+  }
+
   await logProcessing(db, {
     id: crypto.randomUUID(),
     entryId,
@@ -145,6 +159,7 @@ async function processJournalMessage(
   const polishHint = formatDictionaryForPolish(dictTerms);
 
   // Transcribe audio/video via Workers AI Whisper
+  let transcribed = false;
   if (mediaRecord && (entryType === "audio" || entryType === "video")) {
     try {
       const transcription = await transcribeFromR2(
@@ -162,6 +177,7 @@ async function processJournalMessage(
       }
 
       await updateEntry(db, entryId, user.id, { rawContent });
+      transcribed = true;
     } catch (err) {
       // Transcription failed — transcribeFromR2 logs internally, but log here
       // as fallback in case logging itself failed
@@ -207,11 +223,16 @@ async function processJournalMessage(
     }
   }
 
-  await sendTelegramMessage(
-    env,
-    chatId,
-    "Got it! Your journal entry has been saved."
-  );
+  // Send follow-up for audio/video after transcription + polish completes
+  if (hasAudioVideo) {
+    await sendTelegramMessage(
+      env,
+      chatId,
+      transcribed
+        ? "Your media has been transcribed and polished."
+        : "Processing finished, but transcription failed. You can try re-transcribing from the web app."
+    );
+  }
 }
 
 // POST /api/webhooks/telegram — inbound messages from Telegram

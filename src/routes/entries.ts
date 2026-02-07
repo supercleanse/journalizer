@@ -267,19 +267,13 @@ entries.delete("/:id", async (c) => {
   return c.json({ success: true });
 });
 
-// ── Admin Endpoints ─────────────────────────────────────────────────
-
-// POST /api/entries/:id/retranscribe — re-transcribe audio/video (admin only)
+// POST /api/entries/:id/retranscribe — re-transcribe audio/video
 entries.post("/:id/retranscribe", async (c) => {
   const userId = c.get("userId");
   const entryId = c.req.param("id");
   const db = createDb(c.env.DB);
 
   const user = await getUserById(db, userId);
-  if (!user || user.role !== "admin") {
-    throw AppError.forbidden("Admin access required");
-  }
-
   const entry = await getEntryById(db, entryId, userId);
   if (!entry) {
     throw new EntryNotFound();
@@ -315,28 +309,32 @@ entries.post("/:id/retranscribe", async (c) => {
   await updateEntry(db, entryId, userId, { rawContent });
 
   // Polish the transcription
-  try {
-    const result = await polishEntryWithLogging(
-      db,
-      c.env.ANTHROPIC_API_KEY,
-      entryId,
-      rawContent,
-      {
-        voiceStyle: (user.voiceStyle as VoiceStyle) ?? "natural",
-        voiceNotes: user.voiceNotes,
-        dictionaryHint: polishHint || undefined,
-      }
-    );
-    await updateEntry(db, entryId, userId, {
-      polishedContent: result.polishedContent,
-    });
-  } catch {
-    // Polish failed — keep raw content
+  if (user) {
+    try {
+      const result = await polishEntryWithLogging(
+        db,
+        c.env.ANTHROPIC_API_KEY,
+        entryId,
+        rawContent,
+        {
+          voiceStyle: (user.voiceStyle as VoiceStyle) ?? "natural",
+          voiceNotes: user.voiceNotes,
+          dictionaryHint: polishHint || undefined,
+        }
+      );
+      await updateEntry(db, entryId, userId, {
+        polishedContent: result.polishedContent,
+      });
+    } catch {
+      // Polish failed — keep raw content
+    }
   }
 
   const updated = await getEntryById(db, entryId, userId);
   return c.json({ entry: updated, transcript: transcription.transcript });
 });
+
+// ── Admin Endpoints ─────────────────────────────────────────────────
 
 // POST /api/entries/regenerate-digest — regenerate digest for a date (admin only)
 entries.post("/regenerate-digest", async (c) => {

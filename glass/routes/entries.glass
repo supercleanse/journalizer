@@ -25,6 +25,7 @@ guarantees:
     - "AI polish failure does not prevent entry creation (graceful degradation)"
     - "PUT /api/entries/:id updates only the fields provided"
     - "DELETE /api/entries/:id cascade-deletes associated media"
+    - "POST /api/entries/:id/retranscribe re-transcribes audio/video entries (user-accessible, ownership enforced)"
   on_failure:
     - "Invalid request body returns 400 with Zod validation details"
     - "Non-existent entry returns 404"

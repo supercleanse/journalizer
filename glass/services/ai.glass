@@ -25,6 +25,7 @@ guarantees:
     - "Custom voice notes are incorporated into the editing instructions"
     - "Token usage is tracked and logged to processing_log table"
     - "Returns only the polished text — no AI commentary or preamble"
+    - "Paragraphs kept short (2-3 sentences max) for readability, especially transcribed audio"
   on_failure:
     - "API errors are logged to processing_log with 'failed' status"
     - "Error is propagated to caller for handling"
