@@ -1,0 +1,33 @@
+=== Glass Unit ===
+id: services.emailBody
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Generate personalized, AI-enhanced email body content for journal export emails. Computes period stats and uses Claude to generate a congratulatory quip and synopsis from journal entries. Falls back gracefully if AI is unavailable.
+source:
+  kind: prd
+  reference: "Personalized Email Body Feature"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "ExportEntry[] array with entries for the email period"
+  - "ANTHROPIC_API_KEY for AI-generated content (optional)"
+guarantees:
+  on_success:
+    - "computeEntryStats returns accurate counts of unique days, entries, images, videos, and audio"
+    - "generateEmailAIContent returns a personalized quip and 3-4 bullet synopsis"
+    - "buildPersonalizedEmailHtml always returns valid HTML regardless of AI availability"
+    - "All user-derived and AI-generated text is HTML-escaped"
+  on_failure:
+    - "AI failure falls back to simple template with stats bar"
+    - "Email always renders and sends"
+invariants:
+  - "Stats are computed from data, never AI-generated"
+  - "Entry content sent to AI is truncated (max 300 chars per entry, max 50 entries)"
+fails:
+  AnthropicError: "Fall back to simple template"

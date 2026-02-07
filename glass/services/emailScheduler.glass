@@ -24,6 +24,7 @@ guarantees:
     - "Entries are fetched for the correct date period using fetchEntriesForExport"
     - "PDF is generated via generatePdfWithImages with images included per subscription setting"
     - "Entry types filter (daily/individual/both) is respected per subscription"
+    - "Email body is personalized with AI-generated quip, stats, and synopsis via buildPersonalizedEmailHtml"
     - "Email is sent with PDF attachment via Resend"
     - "Subscription nextEmailDate is advanced to the next period"
     - "Success is logged to processing_log"

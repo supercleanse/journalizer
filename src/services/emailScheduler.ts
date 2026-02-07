@@ -8,6 +8,7 @@ import {
 import { fetchEntriesForExport, generatePdfWithImages } from "./export";
 import type { ExportOptions, PdfOptions } from "./export";
 import { sendEmail, uint8ArrayToBase64 } from "./email";
+import { buildPersonalizedEmailHtml } from "./emailBody";
 import { getTrailingPeriod, advanceAlignedDate, isDueInTimezone } from "../lib/period";
 
 // Glass contract: failure modes
@@ -80,12 +81,15 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
       const frequencyLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
       const subject = `Your ${frequencyLabel} Journal - ${formatDateRange(start, end)}`;
 
-      const html = buildEmailHtml(
-        sub.userDisplayName || "there",
-        frequencyLabel,
-        start,
-        end,
-        entries.length
+      const html = await buildPersonalizedEmailHtml(
+        env.ANTHROPIC_API_KEY,
+        entries,
+        {
+          name: sub.userDisplayName || "there",
+          periodLabel: frequencyLabel,
+          startDate: start,
+          endDate: end,
+        }
       );
 
       await sendEmail(env.RESEND_API_KEY, fromEmail, {
@@ -144,45 +148,3 @@ function formatDateRange(start: string, end: string): string {
   return `${months[s.getUTCMonth()]} ${s.getUTCDate()}-${months[e.getUTCMonth()]} ${e.getUTCDate()}, ${e.getUTCFullYear()}`;
 }
 
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00Z");
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function buildEmailHtml(
-  name: string,
-  frequency: string,
-  start: string,
-  end: string,
-  entryCount: number
-): string {
-  const safeName = escapeHtml(name);
-  return `
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #1a1a1a;">Your ${escapeHtml(frequency)} Journal</h2>
-  <p style="color: #4a4a4a; line-height: 1.6;">
-    Hi ${safeName},
-  </p>
-  <p style="color: #4a4a4a; line-height: 1.6;">
-    Your journal PDF for <strong>${formatDate(start)}</strong> through <strong>${formatDate(end)}</strong> is attached.
-    This export includes ${entryCount} ${entryCount === 1 ? "entry" : "entries"}.
-  </p>
-  <p style="color: #999; font-size: 13px; margin-top: 30px;">
-    You received this email because you have an active ${frequency.toLowerCase()} email subscription in Journalizer.
-    To unsubscribe, visit your Settings page.
-  </p>
-</div>`;
-}

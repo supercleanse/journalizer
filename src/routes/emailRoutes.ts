@@ -13,6 +13,7 @@ import { ValidationError, EmailSubscriptionNotFound } from "../lib/errors";
 import { fetchEntriesForExport, generatePdfWithImages } from "../services/export";
 import type { ExportOptions, PdfOptions } from "../services/export";
 import { sendEmail, uint8ArrayToBase64 } from "../services/email";
+import { buildPersonalizedEmailHtml } from "../services/emailBody";
 import { formatDateStr, getAlignedSendDate } from "../lib/period";
 
 // Glass contract: failure modes
@@ -202,16 +203,21 @@ emailRoutes.post("/send-now", async (c) => {
   const periodLabel = parsed.data.period.charAt(0).toUpperCase() + parsed.data.period.slice(1);
   const fromEmail = c.env.RESEND_FROM_EMAIL || "Journalizer <noreply@journalizer.app>";
 
+  const html = await buildPersonalizedEmailHtml(
+    c.env.ANTHROPIC_API_KEY,
+    entries,
+    {
+      name: user.displayName || "there",
+      periodLabel,
+      startDate,
+      endDate,
+    }
+  );
+
   await sendEmail(c.env.RESEND_API_KEY, fromEmail, {
     to: user.email,
     subject: `Your ${periodLabel} Journal - ${startDate} to ${endDate}`,
-    html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #1a1a1a;">Your ${periodLabel} Journal</h2>
-  <p style="color: #4a4a4a; line-height: 1.6;">
-    Your journal PDF for <strong>${startDate}</strong> through <strong>${endDate}</strong> is attached.
-    This export includes ${entries.length} ${entries.length === 1 ? "entry" : "entries"}.
-  </p>
-</div>`,
+    html,
     attachments: [
       {
         filename: `journal-${startDate}-to-${endDate}.pdf`,
