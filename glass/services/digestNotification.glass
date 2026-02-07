@@ -1,0 +1,38 @@
+=== Glass Unit ===
+id: services.digestNotification
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Generate AI-powered congratulatory notification content when a daily digest completes. Produces a cheeky quip and condensed synopsis for use in both Telegram and email notifications. Cached per user+date in KV to avoid duplicate AI calls on retries.
+source:
+  kind: conversation
+  reference: "User request — digest completion email & enhanced telegram notifications"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Digest content (polishedContent string) is available"
+  - "ANTHROPIC_API_KEY configured for AI generation"
+  - "KV namespace available for caching"
+guarantees:
+  on_success:
+    - "generateDigestNotificationContent returns { quip, synopsis[] } from AI"
+    - "Result cached in KV with key digest_notif:{userId}:{date} and 48h TTL"
+    - "Quip is congratulatory, cheeky, warm, 1-2 sentences"
+    - "Synopsis is 2-3 bullet points summarizing the day's events"
+    - "buildDigestNotificationEmailHtml returns complete HTML email string"
+    - "formatDigestTelegramMessage returns plain text message with quip and synopsis"
+  on_failure:
+    - "AI failure falls back to static congratulatory quips with empty synopsis"
+    - "KV cache miss or failure is non-fatal"
+invariants:
+  - "At most one AI call per user per date (KV dedup)"
+  - "Digest content sent to AI is truncated to 2000 chars max"
+  - "All user-derived text is HTML-escaped in email output"
+fails:
+  AnthropicError: "Fall back to static congratulatory quip, no synopsis"
+  KVError: "Continue without caching"

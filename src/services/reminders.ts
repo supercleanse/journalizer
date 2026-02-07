@@ -11,6 +11,12 @@ import {
 import { sendTelegramMessage } from "./telegram";
 import { generateDailyDigest } from "./digest";
 import { getDailyQuip, getFallbackQuip } from "./reminderQuips";
+import {
+  generateDigestNotificationContent,
+  formatDigestTelegramMessage,
+  buildDigestNotificationEmailHtml,
+} from "./digestNotification";
+import { sendEmail } from "./email";
 
 // Glass contract: failure modes (soft failures in cron loop)
 export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid, DigestGenerationFailed } from "../lib/errors";
@@ -161,15 +167,45 @@ export async function handleCron(env: Env): Promise<void> {
         // Skip if already generated for this date
         if (user.lastDigestDate === targetDate) continue;
 
-        await generateDailyDigest(
+        const digestContent = await generateDailyDigest(
           env,
           db,
           user.id,
-          targetDate,
-          async (chatId, message) => {
-            await sendTelegramMessage(env, chatId, message);
+          targetDate
+        );
+
+        // Send notifications if digest was created
+        if (digestContent) {
+          try {
+            const notifContent = await generateDigestNotificationContent(
+              env,
+              user.id,
+              targetDate,
+              digestContent
+            );
+
+            // Enhanced Telegram notification
+            if (user.telegramChatId) {
+              const telegramMsg = formatDigestTelegramMessage(targetDate, notifContent);
+              await sendTelegramMessage(env, user.telegramChatId, telegramMsg).catch(() => {});
+            }
+
+            // Opt-in email notification
+            if (user.digestNotifyEmail && user.email && env.RESEND_API_KEY && env.RESEND_FROM_EMAIL) {
+              const name = user.displayName || "there";
+              const html = buildDigestNotificationEmailHtml(name, targetDate, notifContent);
+              await sendEmail(env.RESEND_API_KEY, env.RESEND_FROM_EMAIL, {
+                to: user.email,
+                subject: `Your journal entry for ${targetDate} is ready`,
+                html,
+              }).catch((emailErr) => {
+                console.error("Digest email notification failed:", emailErr);
+              });
+            }
+          } catch {
+            // Notification failure should not block other users
           }
-        ).catch(() => {});
+        }
       } catch {
         // Skip this user, continue with others
       }

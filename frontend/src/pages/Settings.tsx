@@ -204,6 +204,7 @@ export default function Settings() {
     timezone: "",
     voiceStyle: "natural",
     voiceNotes: "",
+    digestNotifyEmail: false,
   });
 
   useEffect(() => {
@@ -215,6 +216,7 @@ export default function Settings() {
           Intl.DateTimeFormat().resolvedOptions().timeZone,
         voiceStyle: settings.voiceStyle ?? "natural",
         voiceNotes: settings.voiceNotes ?? "",
+        digestNotifyEmail: settings.digestNotifyEmail ?? false,
       });
     }
   }, [settings]);
@@ -495,6 +497,66 @@ export default function Settings() {
               {linkTelegramMutation.isPending ? "Generating..." : "Link Telegram"}
             </button>
           )}
+        </div>
+
+        {/* Digest Notifications */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-1 text-lg font-medium text-gray-900">
+            Digest Notifications
+          </h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Get notified when your daily entry is compiled.
+          </p>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Telegram</p>
+                <p className="text-xs text-gray-400">
+                  {settings?.telegramLinked
+                    ? "Enabled automatically when Telegram is linked"
+                    : "Link Telegram above to enable"}
+                </p>
+              </div>
+              <span
+                className={`text-sm ${
+                  settings?.telegramLinked
+                    ? "text-green-600"
+                    : "text-gray-400"
+                }`}
+              >
+                {settings?.telegramLinked ? "Active" : "Inactive"}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Email</p>
+                <p className="text-xs text-gray-400">
+                  Receive a fun recap at {settings?.email}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const newVal = !form.digestNotifyEmail;
+                  setForm({ ...form, digestNotifyEmail: newVal });
+                  updateMutation.mutate({ digestNotifyEmail: newVal } as typeof form);
+                }}
+                className={`relative h-5 w-9 rounded-full transition-colors ${
+                  form.digestNotifyEmail ? "bg-green-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                    form.digestNotifyEmail
+                      ? "translate-x-4"
+                      : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Personal Dictionary */}

@@ -20,6 +20,7 @@ export const users = sqliteTable(
     timezone: text("timezone").default("America/New_York"),
     role: text("role").notNull().default("user"),
     lastDigestDate: text("last_digest_date"),
+    digestNotifyEmail: integer("digest_notify_email").default(0),
     stripeCustomerId: text("stripe_customer_id"),
     createdAt: text("created_at").default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").default(sql`(datetime('now'))`),

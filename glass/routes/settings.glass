@@ -20,7 +20,8 @@ requires:
 guarantees:
   on_success:
     - "GET /api/settings returns user profile including telegramLinked status"
-    - "PUT /api/settings updates displayName, timezone, voiceStyle, voiceNotes with Zod validation"
+    - "PUT /api/settings updates displayName, timezone, voiceStyle, voiceNotes, digestNotifyEmail with Zod validation"
+    - "GET /api/settings returns digestNotifyEmail boolean"
     - "Timezone validated against Intl.supportedValuesOf('timeZone') — rejects invalid IANA identifiers"
     - "POST /api/settings/link-telegram generates 8-char alphanumeric code stored in KV with 10-min TTL"
     - "POST /api/settings/unlink-telegram removes telegramChatId from user record"

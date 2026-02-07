@@ -30,6 +30,10 @@ guarantees:
     - "lastSentAt updated after successful message delivery"
     - "Daily digest generated at midnight (00:00-00:14) for previous day"
     - "Digest generation awaited to ensure completion within cron lifecycle"
+    - "Enhanced Telegram notification includes a congratulatory quip and day synopsis"
+    - "Opt-in email notification sent when user.digestNotifyEmail is enabled"
+    - "Notification AI content generated once and shared between Telegram and email"
+    - "Notification AI content cached in KV per user+date (48h TTL)"
   on_failure:
     - "Individual reminder failures do not block other reminders"
     - "Individual digest failures do not block other users"

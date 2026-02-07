@@ -35,6 +35,7 @@ settings.get("/", async (c) => {
     telegramLinked: !!user.telegramChatId,
     voiceStyle: user.voiceStyle,
     voiceNotes: user.voiceNotes,
+    digestNotifyEmail: !!user.digestNotifyEmail,
   });
 });
 
@@ -53,6 +54,7 @@ const updateSettingsSchema = z.object({
     .enum(["natural", "conversational", "reflective", "polished"])
     .optional(),
   voiceNotes: z.string().max(500).optional(),
+  digestNotifyEmail: z.boolean().optional(),
 });
 
 // PUT /api/settings — update settings
@@ -71,7 +73,14 @@ settings.put("/", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-  const user = await updateUser(db, userId, parsed.data);
+
+  // Convert boolean to integer for D1
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (typeof updateData.digestNotifyEmail === "boolean") {
+    updateData.digestNotifyEmail = updateData.digestNotifyEmail ? 1 : 0;
+  }
+
+  const user = await updateUser(db, userId, updateData);
 
   if (!user) {
     return c.json({ error: "User not found" }, 404);
@@ -82,6 +91,7 @@ settings.put("/", async (c) => {
     timezone: user.timezone,
     voiceStyle: user.voiceStyle,
     voiceNotes: user.voiceNotes,
+    digestNotifyEmail: !!user.digestNotifyEmail,
   });
 });
 
