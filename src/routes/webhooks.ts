@@ -11,7 +11,9 @@ import {
   createEntry,
   updateEntry,
   logProcessing,
+  upsertHabitLog,
 } from "../db/queries";
+import type { HabitCheckinSession } from "../services/reminders";
 import type { TelegramUpdate } from "../services/telegram";
 import {
   sendTelegramMessage,
@@ -236,7 +238,7 @@ webhooks.post("/telegram", async (c) => {
     await sendTelegramMessage(
       c.env,
       chatId,
-      "Welcome to Journalizer! To link your account, go to Settings on journalizer.caseproof.workers.dev, " +
+      "Welcome to Journalizer! To link your account, go to Settings on journalizerapp.com, " +
         "click 'Link Telegram', and send the code here."
     );
     return c.json({ ok: true });
@@ -278,9 +280,87 @@ webhooks.post("/telegram", async (c) => {
       c.env,
       chatId,
       "This Telegram account is not linked to Journalizer. " +
-        "Sign in at journalizer.caseproof.workers.dev and link your Telegram in Settings."
+        "Sign in at journalizerapp.com and link your Telegram in Settings."
     );
     return c.json({ ok: true });
+  }
+
+  // ── Habit Check-In Intercept ─────────────────────────────────────
+  const sessionKey = `habit_checkin:${chatId}`;
+  try {
+    const sessionJson = await c.env.KV.get(sessionKey);
+    if (sessionJson) {
+      const session: HabitCheckinSession = JSON.parse(sessionJson);
+
+      // Handle /cancel command
+      if (text.trim().toLowerCase() === "/cancel") {
+        await c.env.KV.delete(sessionKey);
+        await sendTelegramMessage(c.env, chatId, "Habit check-in cancelled.");
+        return c.json({ ok: true });
+      }
+
+      // Parse yes/no response
+      const normalized = text.trim().toLowerCase();
+      const YES_RESPONSES = new Set(["y", "yes", "t", "true", "1"]);
+      const NO_RESPONSES = new Set(["n", "no", "f", "false", "0"]);
+
+      const isYes = YES_RESPONSES.has(normalized);
+      const isNo = NO_RESPONSES.has(normalized);
+
+      if (!isYes && !isNo) {
+        await sendTelegramMessage(
+          c.env,
+          chatId,
+          "Please reply yes or no (y/n/t/f/1/0)."
+        );
+        return c.json({ ok: true });
+      }
+
+      const completed = isYes;
+      const habitId = session.habitIds[session.currentIndex];
+
+      // Record the answer
+      await upsertHabitLog(db, {
+        id: crypto.randomUUID(),
+        habitId,
+        userId: session.userId,
+        logDate: session.date,
+        completed: completed ? 1 : 0,
+        source: "telegram",
+      });
+
+      session.answers[habitId] = completed;
+      session.currentIndex++;
+
+      // Check if there are more questions
+      if (session.currentIndex < session.habitIds.length) {
+        // Update session and send next question
+        await c.env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 });
+        await sendTelegramMessage(
+          c.env,
+          chatId,
+          session.questions[session.currentIndex]
+        );
+      } else {
+        // All done — delete session and send summary
+        await c.env.KV.delete(sessionKey);
+        const summary = session.names
+          .map((name, i) => {
+            const done = session.answers[session.habitIds[i]];
+            return `${done ? "\u2705" : "\u274c"} ${name}`;
+          })
+          .join("\n");
+        await sendTelegramMessage(
+          c.env,
+          chatId,
+          `Habit check-in complete!\n\n${summary}`
+        );
+      }
+
+      return c.json({ ok: true });
+    }
+  } catch {
+    // KV failure — fall through to normal journal entry processing
   }
 
   // Process the journal entry in the background to avoid Telegram webhook timeout

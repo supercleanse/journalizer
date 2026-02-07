@@ -158,6 +158,13 @@ export class ReminderNotFound extends AppError {
   }
 }
 
+export class HabitNotFound extends AppError {
+  constructor(message = "Habit not found") {
+    super(404, "HABIT_NOT_FOUND", message);
+    this.name = "HabitNotFound";
+  }
+}
+
 // ── Service Errors ───────────────────────────────────────────────────
 
 export class ApiError extends AppError {

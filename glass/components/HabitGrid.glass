@@ -1,0 +1,26 @@
+=== Glass Unit ===
+id: components.HabitGrid
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Read-only compact grid showing habit completion status for a specific date, displayed after each day's entries in the timeline.
+source:
+  kind: prd
+  reference: "Habits Feature — Timeline Display"
+parent: pages.Dashboard
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Habits and logs data passed as props"
+guarantees:
+  on_success:
+    - "Shows compact row of habit names with check/x icons"
+    - "Only renders when there are logs for the given date"
+  on_failure: []
+invariants:
+  - "Component is read-only (no toggle interaction)"
+fails: {}

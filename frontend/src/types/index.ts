@@ -112,6 +112,28 @@ export interface DictionaryTerm {
   createdAt: string;
 }
 
+export interface Habit {
+  id: string;
+  userId: string;
+  name: string;
+  question: string;
+  sortOrder: number;
+  isActive: boolean;
+  checkinTime: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HabitLog {
+  id: string;
+  habitId: string;
+  userId: string;
+  logDate: string;
+  completed: boolean;
+  source: string;
+  createdAt: string;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

@@ -201,6 +201,44 @@ export const printSubscriptions = sqliteTable(
   ]
 );
 
+export const habits = sqliteTable(
+  "habits",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    question: text("question").notNull(),
+    sortOrder: integer("sort_order").default(0),
+    isActive: integer("is_active").default(1),
+    checkinTime: text("checkin_time"),
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  },
+  (table) => [index("idx_habits_user").on(table.userId)]
+);
+
+export const habitLogs = sqliteTable(
+  "habit_logs",
+  {
+    id: text("id").primaryKey(),
+    habitId: text("habit_id")
+      .notNull()
+      .references(() => habits.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    logDate: text("log_date").notNull(),
+    completed: integer("completed").notNull(),
+    source: text("source").notNull().default("web"),
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_habit_logs_user_date").on(table.userId, table.logDate),
+  ]
+);
+
 export const printOrders = sqliteTable(
   "print_orders",
   {

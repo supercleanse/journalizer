@@ -4,9 +4,11 @@ import {
   getActiveEmailSubscriptions,
   updateEmailSubscription,
   logProcessing,
+  listHabits,
+  getHabitLogsForDateRange,
 } from "../db/queries";
 import { fetchEntriesForExport, generatePdfWithImages } from "./export";
-import type { ExportOptions, PdfOptions } from "./export";
+import type { ExportOptions, PdfOptions, HabitData } from "./export";
 import { sendEmail, uint8ArrayToBase64 } from "./email";
 import { buildPersonalizedEmailHtml } from "./emailBody";
 import { getTrailingPeriod, advanceAlignedDate, isDueInTimezone } from "../lib/period";
@@ -68,11 +70,28 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
         continue;
       }
 
+      // Fetch habit data for the export period
+      let habitData: HabitData | undefined;
+      const habits = await listHabits(db, sub.userId);
+      if (habits.length > 0) {
+        const logs = await getHabitLogsForDateRange(db, sub.userId, start, end);
+        const logsByDate: Record<string, Record<string, boolean>> = {};
+        for (const log of logs) {
+          if (!logsByDate[log.logDate]) logsByDate[log.logDate] = {};
+          logsByDate[log.logDate][log.habitId] = log.completed === 1;
+        }
+        habitData = {
+          habits: habits.map((h) => ({ id: h.id, name: h.name })),
+          logsByDate,
+        };
+      }
+
       const pdfOptions: PdfOptions = {
         userName: sub.userDisplayName || "My Journal",
         timezone: userTimezone,
         startDate: start,
         endDate: end,
+        habitData,
       };
 
       const pdfBytes = generatePdfWithImages(entries, pdfOptions);
@@ -89,6 +108,7 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
           periodLabel: frequencyLabel,
           startDate: start,
           endDate: end,
+          habitData,
         }
       );
 

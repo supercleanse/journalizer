@@ -1,12 +1,13 @@
 import { Hono } from "hono";
 import type { AppContext } from "../types/env";
 import { createDb } from "../db/index";
-import { getUserById } from "../db/queries";
+import { getUserById, listHabits, getHabitLogsForDateRange } from "../db/queries";
 import {
   fetchEntriesForExport,
   generatePdfWithImages,
   generateExportZip,
 } from "../services/export";
+import type { HabitData } from "../services/export";
 import { ValidationError } from "../lib/errors";
 
 // Glass contract: failure modes
@@ -83,7 +84,29 @@ exportRoutes.get("/", async (c) => {
 
   const today = new Date().toISOString().split("T")[0];
   const timezone = user?.timezone || "UTC";
-  const pdfOptions = { userName, timezone, startDate, endDate };
+
+  // Fetch habit data for the export period
+  let habitData: HabitData | undefined;
+  const habits = await listHabits(db, userId);
+  if (habits.length > 0) {
+    const entryDates = entries.map((e) => e.entryDate).sort();
+    const rangeStart = startDate || entryDates[0];
+    const rangeEnd = endDate || entryDates[entryDates.length - 1];
+    const logs = await getHabitLogsForDateRange(db, userId, rangeStart, rangeEnd);
+
+    const logsByDate: Record<string, Record<string, boolean>> = {};
+    for (const log of logs) {
+      if (!logsByDate[log.logDate]) logsByDate[log.logDate] = {};
+      logsByDate[log.logDate][log.habitId] = log.completed === 1;
+    }
+
+    habitData = {
+      habits: habits.map((h) => ({ id: h.id, name: h.name })),
+      logsByDate,
+    };
+  }
+
+  const pdfOptions = { userName, timezone, startDate, endDate, habitData };
 
   // Determine output format
   if (includeMultimedia) {

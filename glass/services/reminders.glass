@@ -34,9 +34,16 @@ guarantees:
     - "Opt-in email notification sent when user.digestNotifyEmail is enabled"
     - "Notification AI content generated once and shared between Telegram and email"
     - "Notification AI content cached in KV per user+date (48h TTL)"
+    - "Habit check-in messages sent at each habit's configured checkinTime in user's timezone"
+    - "Habit check-in creates KV session with ordered questions and 1-hour TTL"
+    - "First habit question sent via Telegram when session is created"
+    - "Habits already answered today are skipped (no duplicate check-ins)"
+    - "Users without Telegram linked are skipped for habit check-ins"
+    - "Active sessions (KV exists) prevent duplicate session creation"
   on_failure:
     - "Individual reminder failures do not block other reminders"
     - "Individual digest failures do not block other users"
+    - "Individual habit check-in failures do not block other users"
     - "All failures logged to processing_log with error details"
 invariants:
   - "No duplicate sends within the same day (lastSentAt check)"
@@ -44,8 +51,11 @@ invariants:
   - "Timezone conversion uses Intl.DateTimeFormat with IANA identifiers"
   - "15-minute cron window tolerance for time matching"
   - "Yesterday calculation is DST-safe (calendar date subtraction, not fixed 24h)"
+  - "Habit check-in KV key format: habit_checkin:{chatId}"
+  - "Habit check-in KV TTL: 3600 seconds (1 hour auto-expiry)"
 fails:
   SMSDeliveryFailed: "Log error, continue with remaining reminders"
   UserNotFound: "Skip reminder silently"
   TimezoneInvalid: "Fall back to UTC"
   DigestGenerationFailed: "Log error, continue with remaining users"
+  HabitCheckinFailed: "Log error, continue with remaining users"

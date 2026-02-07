@@ -4,9 +4,11 @@ import { format, subDays, parseISO } from "date-fns";
 import Header from "../components/Header";
 import EntryCard from "../components/EntryCard";
 import Calendar from "../components/Calendar";
+import HabitTracker from "../components/HabitTracker";
+import HabitGrid from "../components/HabitGrid";
 import { api } from "../lib/api";
 import { useDebouncedValue, useIntersectionObserver, useTimezone } from "../lib/hooks";
-import type { Entry } from "../types";
+import type { Entry, Habit, HabitLog } from "../types";
 
 interface EntriesResponse {
   entries: Entry[];
@@ -115,6 +117,46 @@ export default function Dashboard() {
     }).length;
   }, [allDatesData]);
 
+  // Fetch habits + logs for timeline habit grid
+  const { data: habitsData } = useQuery({
+    queryKey: ["habits"],
+    queryFn: () => api.get<{ habits: Habit[] }>("/api/habits"),
+  });
+
+  const visibleDates = useMemo(
+    () => allEntries.map((e) => e.entryDate),
+    [allEntries]
+  );
+
+  const dateRange = useMemo(() => {
+    if (visibleDates.length === 0) return null;
+    const sorted = [...new Set(visibleDates)].sort();
+    return { start: sorted[0], end: sorted[sorted.length - 1] };
+  }, [visibleDates]);
+
+  const { data: habitLogsData } = useQuery({
+    queryKey: ["habit-logs-range", dateRange?.start, dateRange?.end],
+    queryFn: () =>
+      api.get<{ logs: HabitLog[] }>(
+        `/api/habits/logs?startDate=${dateRange!.start}&endDate=${dateRange!.end}`
+      ),
+    enabled: !!dateRange,
+  });
+
+  const habitLogsByDate = useMemo(() => {
+    const map: Record<string, HabitLog[]> = {};
+    for (const log of habitLogsData?.logs ?? []) {
+      if (!map[log.logDate]) map[log.logDate] = [];
+      map[log.logDate].push(log);
+    }
+    return map;
+  }, [habitLogsData]);
+
+  const activeHabits = useMemo(
+    () => (habitsData?.habits ?? []).filter((h) => h.isActive),
+    [habitsData]
+  );
+
   // Group entries by date
   const grouped = useMemo(() => {
     const groups: Record<string, Entry[]> = {};
@@ -169,6 +211,8 @@ export default function Dashboard() {
                 </span>
               </div>
             </div>
+
+            <HabitTracker timezone={timezone} />
           </aside>
 
           {/* Entry timeline */}
@@ -202,6 +246,13 @@ export default function Dashboard() {
                         <EntryCard key={entry.id} entry={entry} timezone={timezone} />
                       ))}
                     </div>
+                    {activeHabits.length > 0 && habitLogsByDate[date] && (
+                      <HabitGrid
+                        date={date}
+                        habits={activeHabits}
+                        logs={habitLogsByDate[date]}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

@@ -26,6 +26,10 @@ guarantees:
     - "createUser accepts optional role parameter (defaults to 'user')"
     - "updateUser accepts optional role parameter for admin promotion/demotion"
     - "getEntryById eagerly loads associated media records"
+    - "listHabits returns habits ordered by sortOrder then createdAt"
+    - "upsertHabitLog uses onConflictDoUpdate on (habit_id, log_date) for idempotent writes"
+    - "getActiveHabitsWithCheckinTime returns all active habits with non-null checkinTime across all users"
+    - "getHabitLogsForDateRange supports inclusive date filtering"
   on_failure:
     - "Database errors are propagated, not swallowed"
     - "Partial writes do not corrupt data (D1 auto-rollback)"

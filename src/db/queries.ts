@@ -11,6 +11,8 @@ import {
   printOrders,
   personalDictionary,
   emailSubscriptions,
+  habits,
+  habitLogs,
 } from "./schema";
 
 // Glass contract: failure modes (soft failures return null)
@@ -925,6 +927,129 @@ export async function getActiveEmailSubscriptions(db: Database) {
     .from(emailSubscriptions)
     .innerJoin(users, eq(emailSubscriptions.userId, users.id))
     .where(eq(emailSubscriptions.isActive, 1));
+}
+
+// ── Habits ──────────────────────────────────────────────────────────
+
+export async function listHabits(db: Database, userId: string) {
+  return db
+    .select()
+    .from(habits)
+    .where(eq(habits.userId, userId))
+    .orderBy(habits.sortOrder, habits.createdAt);
+}
+
+export async function getHabitById(db: Database, id: string, userId: string) {
+  const result = await db
+    .select()
+    .from(habits)
+    .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function createHabit(
+  db: Database,
+  data: {
+    id: string;
+    userId: string;
+    name: string;
+    question: string;
+    sortOrder?: number;
+    checkinTime?: string;
+  }
+) {
+  await db.insert(habits).values(data);
+  return getHabitById(db, data.id, data.userId);
+}
+
+export async function updateHabit(
+  db: Database,
+  id: string,
+  userId: string,
+  data: Partial<{
+    name: string;
+    question: string;
+    sortOrder: number;
+    isActive: number;
+    checkinTime: string | null;
+  }>
+) {
+  await db
+    .update(habits)
+    .set({ ...data, updatedAt: sql`(datetime('now'))` })
+    .where(and(eq(habits.id, id), eq(habits.userId, userId)));
+  return getHabitById(db, id, userId);
+}
+
+export async function deleteHabit(db: Database, id: string, userId: string) {
+  const result = await db
+    .delete(habits)
+    .where(and(eq(habits.id, id), eq(habits.userId, userId)));
+  return result.meta.changes > 0;
+}
+
+export async function getHabitLogsForDate(db: Database, userId: string, date: string) {
+  return db
+    .select()
+    .from(habitLogs)
+    .where(and(eq(habitLogs.userId, userId), eq(habitLogs.logDate, date)));
+}
+
+export async function getHabitLogsForDateRange(
+  db: Database,
+  userId: string,
+  startDate: string,
+  endDate: string
+) {
+  return db
+    .select()
+    .from(habitLogs)
+    .where(
+      and(
+        eq(habitLogs.userId, userId),
+        gte(habitLogs.logDate, startDate),
+        lte(habitLogs.logDate, endDate)
+      )
+    );
+}
+
+export async function upsertHabitLog(
+  db: Database,
+  data: {
+    id: string;
+    habitId: string;
+    userId: string;
+    logDate: string;
+    completed: number;
+    source?: string;
+  }
+) {
+  await db
+    .insert(habitLogs)
+    .values(data)
+    .onConflictDoUpdate({
+      target: [habitLogs.habitId, habitLogs.logDate],
+      set: { completed: data.completed, source: data.source ?? "web" },
+    });
+}
+
+export async function getActiveHabitsWithCheckinTime(db: Database) {
+  return db
+    .select({
+      id: habits.id,
+      userId: habits.userId,
+      name: habits.name,
+      question: habits.question,
+      checkinTime: habits.checkinTime,
+    })
+    .from(habits)
+    .where(
+      and(
+        eq(habits.isActive, 1),
+        sql`${habits.checkinTime} IS NOT NULL`
+      )
+    );
 }
 
 // ── Processing Log ──────────────────────────────────────────────────
