@@ -10,6 +10,7 @@ import {
 } from "../db/queries";
 import { sendTelegramMessage } from "./telegram";
 import { generateDailyDigest } from "./digest";
+import { getDailyQuip, getFallbackQuip } from "./reminderQuips";
 
 // Glass contract: failure modes (soft failures in cron loop)
 export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid, DigestGenerationFailed } from "../lib/errors";
@@ -101,10 +102,12 @@ function alreadySentToday(
 
 /**
  * Select a reminder message. Uses the reminder ID hash for deterministic rotation.
+ * Prepends a daily quip to daily/weekly/monthly reminders.
  */
 function selectMessage(
   reminderType: string,
   reminderId: string,
+  dailyQuip: string,
   daysSinceLastEntry?: number
 ): string {
   if (reminderType === "smart" && daysSinceLastEntry !== undefined) {
@@ -121,7 +124,7 @@ function selectMessage(
     hash = (hash * 31 + today.charCodeAt(i)) | 0;
   }
   const idx = Math.abs(hash) % DAILY_MESSAGES.length;
-  return DAILY_MESSAGES[idx];
+  return `${dailyQuip}\n\n${DAILY_MESSAGES[idx]}`;
 }
 
 /**
@@ -183,6 +186,12 @@ export async function handleCron(env: Env): Promise<void> {
   }
 
   // ── Reminders ────────────────────────────────────────────────────
+  let dailyQuip: string;
+  try {
+    dailyQuip = await getDailyQuip(env);
+  } catch {
+    dailyQuip = getFallbackQuip(new Date().toISOString().split("T")[0]);
+  }
   const activeReminders = await getAllActiveReminders(db);
 
   // Batch-fetch all users and last entry dates to avoid N+1 queries
@@ -258,6 +267,7 @@ export async function handleCron(env: Env): Promise<void> {
       const message = selectMessage(
         reminder.reminderType,
         reminder.id,
+        dailyQuip,
         daysSinceLastEntry
       );
 

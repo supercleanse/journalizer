@@ -1,0 +1,35 @@
+=== Glass Unit ===
+id: services.reminderQuips
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Provide a fun, slightly cheeky daily quip for reminder messages. Generates a fresh quip each day via AI (cached in KV) with a curated static fallback list for reliability.
+source:
+  kind: prd
+  reference: "Cheeky Reminder Quips Feature"
+parent: null
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "KV namespace binding for caching daily quips"
+  - "ANTHROPIC_API_KEY for AI-generated quips (optional)"
+guarantees:
+  on_success:
+    - "getDailyQuip always returns a string quip"
+    - "AI-generated quips are cached in KV with key reminder_quip:YYYY-MM-DD and 48h TTL"
+    - "Same quip is returned for all callers on the same day (one AI call per day)"
+    - "Quips are harmless, non-vulgar, slightly cheeky, and journaling-themed"
+  on_failure:
+    - "AI failure falls back to static FALLBACK_QUIPS list rotated by day-of-year"
+    - "Missing API key uses static fallback without attempting AI"
+invariants:
+  - "At most one AI call per calendar day"
+  - "Static fallback list contains at least 50 quips"
+  - "Quips are under 15 words"
+fails:
+  AnthropicError: "Fall back to static quip list"
+  KVError: "Fall back to static quip list"
