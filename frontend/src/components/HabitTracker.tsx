@@ -55,13 +55,14 @@ export default function HabitTracker({ timezone }: HabitTrackerProps) {
       });
       return { previous };
     },
+    onSuccess: (response) => {
+      // Use authoritative server response instead of refetching
+      queryClient.setQueryData(["habit-logs", currentDate], response);
+    },
     onError: (_err, _data, context) => {
       if (context?.previous) {
         queryClient.setQueryData(["habit-logs", currentDate], context.previous);
       }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["habit-logs", currentDate] });
     },
   });
 
