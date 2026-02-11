@@ -14,6 +14,55 @@ export interface TranscriptionResult {
 }
 
 /**
+ * Remove filler words from transcribed text.
+ * Conservative: only removes words in clearly filler positions to preserve meaning.
+ */
+export function cleanFillerWords(text: string): string {
+  let cleaned = text;
+
+  // Filler words that are almost always meaningless in transcription
+  const fillers = ['um', 'uh', 'erm', 'ah', 'hmm'];
+
+  for (const filler of fillers) {
+    // Between commas: ", um," → ","
+    cleaned = cleaned.replace(new RegExp(`,\\s*\\b${filler}\\b\\s*,`, 'gi'), ',');
+    // At start of text: "Um, ..." → "..."
+    cleaned = cleaned.replace(new RegExp(`^\\b${filler}\\b[,.]?\\s*`, 'i'), '');
+    // After sentence boundary: ". Um, " → ". "
+    cleaned = cleaned.replace(new RegExp(`([.!?])\\s*\\b${filler}\\b[,.]?\\s+`, 'gi'), '$1 ');
+  }
+
+  // "like" only when clearly a filler (between commas): ", like," → ","
+  cleaned = cleaned.replace(/,\s*\blike\b\s*,/gi, ',');
+  // "Like, " at start of text
+  cleaned = cleaned.replace(/^\blike\b,\s*/i, '');
+  // "Like, " after sentence boundary
+  cleaned = cleaned.replace(/([.!?])\s*\blike\b,\s+/gi, '$1 ');
+
+  // "you know" as filler (between commas): ", you know," → ","
+  cleaned = cleaned.replace(/,\s*\byou know\b\s*,/gi, ',');
+  // "You know, " at start of text
+  cleaned = cleaned.replace(/^\byou know\b,\s*/i, '');
+  // "You know, " after sentence boundary
+  cleaned = cleaned.replace(/([.!?])\s*\byou know\b,\s+/gi, '$1 ');
+
+  // "I mean" as filler at start or after sentence boundary (only when followed by comma)
+  cleaned = cleaned.replace(/^\bI mean\b,\s*/i, '');
+  cleaned = cleaned.replace(/([.!?])\s*\bI mean\b,\s+/gi, '$1 ');
+
+  // Clean up artifacts
+  cleaned = cleaned.replace(/\s{2,}/g, ' ');
+  cleaned = cleaned.replace(/\s+([.,!?])/g, '$1');
+  cleaned = cleaned.replace(/,\s*,/g, ',');
+
+  // Re-capitalize after filler removal
+  cleaned = cleaned.replace(/^([a-z])/, (_, c: string) => c.toUpperCase());
+  cleaned = cleaned.replace(/([.!?]\s+)([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
+
+  return cleaned.trim();
+}
+
+/**
  * Transcribe audio using Cloudflare Workers AI (Whisper model).
  */
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB (Telegram bot file limit)
@@ -30,12 +79,14 @@ export async function transcribeAudio(
   }
 
   // whisper-large-v3-turbo requires base64 audio input
+  // Use chunked String.fromCharCode to avoid O(n²) string concatenation
   const bytes = new Uint8Array(audioData);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const CHUNK_SIZE = 8192;
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + CHUNK_SIZE)));
   }
-  const base64Audio = btoa(binary);
+  const base64Audio = btoa(chunks.join(''));
 
   const input: Record<string, unknown> = {
     audio: base64Audio,
@@ -69,7 +120,7 @@ export async function transcribeAudio(
   const wordCount = (result as { word_count?: number }).word_count ?? 0;
 
   return {
-    transcript: text.trim(),
+    transcript: cleanFillerWords(text.trim()),
     confidence: 1.0,
     durationSeconds: estimatedDuration,
     words: wordCount,

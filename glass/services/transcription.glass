@@ -1,6 +1,6 @@
 === Glass Unit ===
 id: services.transcription
-version: 0.2.0
+version: 0.4.0
 language: typescript
 
 === Intent ===
@@ -23,6 +23,9 @@ guarantees:
     - "Accepts optional initial_prompt for vocabulary context (proper nouns)"
     - "Word count and estimated duration are tracked"
     - "transcribeFromR2 fetches audio from R2 and transcribes it"
+    - "Filler words (um, uh, erm, ah, hmm) are removed from transcript"
+    - "Transitional 'like', 'you know', 'I mean' removed only when in clearly filler positions (between commas, sentence-start)"
+    - "Filler removal is conservative — preserves user's words when usage is ambiguous"
     - "Processing is logged to D1 processing_log table"
   on_failure:
     - "R2 fetch failures are logged with the R2 key"
@@ -36,3 +39,4 @@ fails:
 advisories:
   - "Workers AI Whisper is included in Workers Paid plan — no per-request cost"
   - "Whisper does not return confidence scores — set to 1.0 for interface compatibility"
+  - "Base64 encoding uses chunked String.fromCharCode for O(n) performance — avoids O(n²) character-by-character string concatenation that blows Workers CPU limit on large files"
