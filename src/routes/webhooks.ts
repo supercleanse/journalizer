@@ -118,35 +118,72 @@ async function processJournalMessage(
   let mediaRecord: MediaRecord | null = null;
 
   if (mediaFile) {
-    const fileUrl = await getTelegramFileUrl(env, mediaFile.file_id);
+    // Check file size before attempting download (Telegram Bot API has a 20MB limit)
+    const TELEGRAM_FILE_LIMIT = 20 * 1024 * 1024; // 20MB
+    const fileSize = (mediaFile as { file_size?: number })?.file_size;
 
-    if (fileUrl) {
-      let mimeType = "application/octet-stream";
-      if (message.voice) mimeType = message.voice.mime_type ?? "audio/ogg";
-      else if (message.audio) mimeType = message.audio.mime_type ?? "audio/mpeg";
-      else if (message.video) mimeType = message.video.mime_type ?? "video/mp4";
-      else if (message.photo) mimeType = "image/jpeg";
+    if (fileSize && fileSize > TELEGRAM_FILE_LIMIT) {
+      await sendTelegramMessage(
+        env,
+        chatId,
+        "This file is too large for Telegram's download limit (20MB). " +
+          "Try sending a shorter recording, or upload via the web app."
+      );
+      await logProcessing(db, {
+        id: crypto.randomUUID(),
+        entryId,
+        action: "media_download",
+        status: "error",
+        details: JSON.stringify({
+          error: `File too large: ${fileSize} bytes (limit: ${TELEGRAM_FILE_LIMIT})`,
+        }),
+      }).catch(() => {});
+    } else {
+      const fileUrl = await getTelegramFileUrl(env, mediaFile.file_id);
 
-      let durationSeconds: number | undefined;
-      if (message.voice) durationSeconds = message.voice.duration;
-      else if (message.audio) durationSeconds = message.audio.duration;
-      else if (message.video) durationSeconds = message.video.duration;
+      if (fileUrl) {
+        let mimeType = "application/octet-stream";
+        if (message.voice) mimeType = message.voice.mime_type ?? "audio/ogg";
+        else if (message.audio) mimeType = message.audio.mime_type ?? "audio/mpeg";
+        else if (message.video) mimeType = message.video.mime_type ?? "video/mp4";
+        else if (message.photo) mimeType = "image/jpeg";
 
-      try {
-        mediaRecord = await downloadAndStore(env, db, fileUrl, {
-          userId: user.id,
-          entryId,
-          mimeType,
-          durationSeconds,
-        });
-      } catch (err) {
+        let durationSeconds: number | undefined;
+        if (message.voice) durationSeconds = message.voice.duration;
+        else if (message.audio) durationSeconds = message.audio.duration;
+        else if (message.video) durationSeconds = message.video.duration;
+
+        try {
+          mediaRecord = await downloadAndStore(env, db, fileUrl, {
+            userId: user.id,
+            entryId,
+            mimeType,
+            durationSeconds,
+          });
+        } catch (err) {
+          await logProcessing(db, {
+            id: crypto.randomUUID(),
+            entryId,
+            action: "media_download",
+            status: "error",
+            details: JSON.stringify({
+              error: err instanceof Error ? err.message : "Media download failed",
+            }),
+          }).catch(() => {});
+        }
+      } else {
+        await sendTelegramMessage(
+          env,
+          chatId,
+          "Couldn't download the file from Telegram. It may be too large (>20MB). Try a shorter recording."
+        ).catch(() => {});
         await logProcessing(db, {
           id: crypto.randomUUID(),
           entryId,
           action: "media_download",
           status: "error",
           details: JSON.stringify({
-            error: err instanceof Error ? err.message : "Media download failed",
+            error: "Telegram getFile failed (file may exceed 20MB limit)",
           }),
         }).catch(() => {});
       }

@@ -42,6 +42,8 @@ guarantees:
   on_failure:
     - "Invalid webhook secret returns 403"
     - "Unlinked users receive instructional message"
+    - "Files exceeding Telegram's 20MB download limit are detected before download and user is notified"
+    - "Telegram getFile failures are logged with descriptive error"
     - "Media download failures logged but do not prevent entry creation"
     - "AI polish failures fall back to raw content"
     - "Transcription failures do not prevent entry creation"
