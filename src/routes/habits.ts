@@ -36,11 +36,6 @@ const createHabitSchema = z.object({
   name: z.string().min(1).max(200),
   question: z.string().min(1).max(500),
   sortOrder: z.number().int().min(0).optional(),
-  checkinTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
-    .optional()
-    .nullable(),
 });
 
 // POST /api/habits — create a habit
@@ -66,7 +61,6 @@ habitsRouter.post("/", async (c) => {
     name: parsed.data.name.trim(),
     question: parsed.data.question.trim(),
     sortOrder: parsed.data.sortOrder,
-    checkinTime: parsed.data.checkinTime ?? undefined,
   });
 
   if (!habit) {
@@ -165,11 +159,6 @@ const updateHabitSchema = z.object({
   question: z.string().min(1).max(500).optional(),
   sortOrder: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
-  checkinTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
-    .optional()
-    .nullable(),
 });
 
 // PUT /api/habits/:id — update a habit

@@ -21,12 +21,12 @@ guarantees:
   on_success:
     - "GET /api/habits returns all habits for the authenticated user ordered by sortOrder"
     - "POST /api/habits creates a habit and returns it with id"
-    - "PUT /api/habits/:id updates the specified habit (name, question, sortOrder, isActive, checkinTime)"
+    - "PUT /api/habits/:id updates the specified habit (name, question, sortOrder, isActive)"
     - "DELETE /api/habits/:id deletes the habit and cascades to habit_logs"
     - "GET /api/habits/logs returns logs for a date or date range"
     - "PUT /api/habits/logs batch-upserts logs for a single date (idempotent)"
     - "isActive boolean is converted to integer (0/1) for D1 storage"
-    - "checkinTime is validated as HH:MM format"
+    - "checkinTime moved to user-level (habitCheckinTime on users table)"
   on_failure:
     - "Invalid input returns 400 with validation details"
     - "Habit not found returns 404"

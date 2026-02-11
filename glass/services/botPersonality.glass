@@ -1,0 +1,41 @@
+=== Glass Unit ===
+id: services.botPersonality
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Generate personality-driven responses for habit check-ins and journal reminders. Supports four bot personalities (encouraging, drill_sergeant, chill, coach) with AI-generated responses via Claude Haiku and static template fallbacks.
+source:
+  kind: prd
+  reference: "Bot Personality & Streak-Aware Responses — Personality Service"
+parent: index
+stakeholder: user
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Valid Anthropic API key for AI-generated responses"
+  - "Streak data computed via services.streaks"
+guarantees:
+  on_success:
+    - "generateHabitResponse returns a personality-appropriate message after habit yes/no"
+    - "generateJournalReminderMessage returns a personality-appropriate journal reminder"
+    - "Encouraging personality: warm, supportive, celebratory on success, gentle on failure"
+    - "Drill Sergeant personality: grudging acknowledgment on success, aggressive on failure, no expletives"
+    - "Chill/Zen personality: calm, serene, non-judgmental, mindful observations"
+    - "Coach personality: firm but supportive, goal-oriented, strategic"
+    - "AI responses use claude-haiku-4-5-20251001 with max_tokens: 100, temperature: 0.8"
+    - "Static fallback functions return template responses when AI unavailable"
+    - "getStaticHabitResponse returns a reasonable response without AI"
+    - "getStaticJournalReminder returns a reasonable reminder without AI"
+  on_failure:
+    - "AI failures fall back to static template responses"
+    - "API errors do not propagate — always returns a string"
+invariants:
+  - "Response length kept under 100 tokens (~75 words)"
+  - "Bot personality is separate from journal polish voiceStyle"
+  - "Each habit answer triggers at most one AI call"
+fails:
+  ApiError: "Fall back to static template"
+  RateLimited: "Fall back to static template"

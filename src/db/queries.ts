@@ -86,6 +86,8 @@ export async function updateUser(
     role: "user" | "admin";
     stripeCustomerId: string;
     digestNotifyEmail: number;
+    habitCheckinTime: string | null;
+    botPersonality: string;
   }>
 ) {
   await db
@@ -973,6 +975,7 @@ export async function updateHabit(
     sortOrder: number;
     isActive: number;
     checkinTime: string | null;
+    lastCleanupOfferedAt: string | null;
   }>
 ) {
   await db
@@ -1049,6 +1052,48 @@ export async function getActiveHabitsWithCheckinTime(db: Database) {
         sql`${habits.checkinTime} IS NOT NULL`
       )
     );
+}
+
+export async function getUsersWithHabitCheckinTime(db: Database) {
+  const rows = await db
+    .select({
+      userId: users.id,
+      telegramChatId: users.telegramChatId,
+      timezone: users.timezone,
+      habitCheckinTime: users.habitCheckinTime,
+      botPersonality: users.botPersonality,
+    })
+    .from(users)
+    .where(sql`${users.habitCheckinTime} IS NOT NULL AND ${users.telegramChatId} IS NOT NULL`);
+  return rows;
+}
+
+export async function getActiveHabitsForUser(db: Database, userId: string) {
+  return db
+    .select()
+    .from(habits)
+    .where(and(eq(habits.userId, userId), eq(habits.isActive, 1)))
+    .orderBy(habits.sortOrder, habits.createdAt);
+}
+
+export async function getHabitLogsForHabit(db: Database, habitId: string, userId: string, limit = 60) {
+  return db
+    .select()
+    .from(habitLogs)
+    .where(and(eq(habitLogs.habitId, habitId), eq(habitLogs.userId, userId)))
+    .orderBy(desc(habitLogs.logDate))
+    .limit(limit);
+}
+
+export async function getRecentEntryDates(db: Database, userId: string, limit = 60) {
+  const rows = await db
+    .select({ entryDate: entries.entryDate })
+    .from(entries)
+    .where(and(eq(entries.userId, userId), ne(entries.entryType, "digest")))
+    .groupBy(entries.entryDate)
+    .orderBy(desc(entries.entryDate))
+    .limit(limit);
+  return rows.map((r) => r.entryDate);
 }
 
 // ── Processing Log ──────────────────────────────────────────────────

@@ -12,6 +12,8 @@ import {
   updateEntry,
   logProcessing,
   upsertHabitLog,
+  getHabitById,
+  updateHabit,
 } from "../db/queries";
 import type { HabitCheckinSession } from "../services/reminders";
 import type { TelegramUpdate } from "../services/telegram";
@@ -30,6 +32,12 @@ import {
   formatDictionaryForPolish,
   extractProperNouns,
 } from "../services/dictionary";
+import { getHabitStreak } from "../services/streaks";
+import {
+  generateHabitResponse,
+  getStaticHabitResponse,
+  type BotPersonality,
+} from "../services/botPersonality";
 
 const webhooks = new Hono<{ Bindings: Env }>();
 
@@ -374,8 +382,62 @@ webhooks.post("/telegram", async (c) => {
         return c.json({ ok: true });
       }
 
+      // ── Handle pending cleanup response ──
+      if (session.pendingCleanup) {
+        const { habitId: cleanupHabitId, habitName: cleanupName } = session.pendingCleanup;
+        delete session.pendingCleanup;
+
+        if (isYes) {
+          // Deactivate the habit
+          await updateHabit(db, cleanupHabitId, session.userId, { isActive: 0 });
+          await sendTelegramMessage(
+            c.env,
+            chatId,
+            `Got it — "${cleanupName}" has been deactivated. You can re-enable it anytime from Settings.`
+          );
+        } else {
+          // Defer — update lastCleanupOfferedAt so we don't ask again for 30 days
+          await updateHabit(db, cleanupHabitId, session.userId, {
+            lastCleanupOfferedAt: new Date().toISOString(),
+          });
+          await sendTelegramMessage(
+            c.env,
+            chatId,
+            `No problem — keeping "${cleanupName}" active.`
+          );
+        }
+
+        // Continue to next habit or finish
+        if (session.currentIndex < session.habitIds.length) {
+          await c.env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 });
+          await sendTelegramMessage(c.env, chatId, session.questions[session.currentIndex]);
+        } else {
+          await c.env.KV.delete(sessionKey);
+          const summary = session.names
+            .map((name, i) => {
+              const done = session.answers[session.habitIds[i]];
+              return `${done ? "\u2705" : "\u274c"} ${name}`;
+            })
+            .join("\n");
+          await sendTelegramMessage(c.env, chatId, `Habit check-in complete!\n\n${summary}`);
+        }
+        return c.json({ ok: true });
+      }
+
+      // ── Normal habit answer ──
       const completed = isYes;
       const habitId = session.habitIds[session.currentIndex];
+      const habitName = session.names[session.currentIndex];
+
+      // Compute streak BEFORE recording the answer (so counts reflect prior state)
+      const personality = (user.botPersonality as BotPersonality) || "encouraging";
+      let streakResponse: string;
+      let preStreak: Awaited<ReturnType<typeof getHabitStreak>> | null = null;
+      try {
+        preStreak = await getHabitStreak(db, habitId, session.userId, session.date);
+      } catch {
+        // Streak computation failed — continue without it
+      }
 
       // Record the answer
       await upsertHabitLog(db, {
@@ -388,16 +450,71 @@ webhooks.post("/telegram", async (c) => {
       });
 
       session.answers[habitId] = completed;
+
+      try {
+        // Adjust streak counts to include today's answer
+        const streak = preStreak ?? { currentStreak: 0, consecutiveMisses: 0, totalCompletions: 0, totalDays: 0 };
+        const adjustedStreak = completed
+          ? { ...streak, currentStreak: streak.currentStreak + 1, consecutiveMisses: 0 }
+          : { ...streak, consecutiveMisses: streak.consecutiveMisses + 1, currentStreak: 0 };
+
+        // Generate personality-aware response
+        if (c.env.ANTHROPIC_API_KEY) {
+          streakResponse = await generateHabitResponse(c.env.ANTHROPIC_API_KEY, {
+            habitName,
+            completed,
+            currentStreak: adjustedStreak.currentStreak,
+            consecutiveMisses: adjustedStreak.consecutiveMisses,
+            personality,
+          });
+        } else {
+          streakResponse = getStaticHabitResponse({
+            habitName,
+            completed,
+            currentStreak: adjustedStreak.currentStreak,
+            consecutiveMisses: adjustedStreak.consecutiveMisses,
+            personality,
+          });
+        }
+
+        // Check auto-cleanup: 7+ consecutive misses
+        if (!completed && adjustedStreak.consecutiveMisses >= 7) {
+          const habit = await getHabitById(db, habitId, session.userId);
+          const lastOffered = habit?.lastCleanupOfferedAt;
+          const cooldownExpired = !lastOffered ||
+            (Date.now() - new Date(lastOffered).getTime()) > 30 * 24 * 60 * 60 * 1000;
+
+          if (cooldownExpired) {
+            // Set pending cleanup — ask user before continuing
+            session.currentIndex++;
+            session.pendingCleanup = { habitId, habitName };
+            const kvWriteOk = await c.env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 }).then(() => true, () => false);
+            if (kvWriteOk) {
+              await sendTelegramMessage(
+                c.env,
+                chatId,
+                `${streakResponse}\n\nYou've missed "${habitName}" for ${adjustedStreak.consecutiveMisses} days in a row. Want me to remove it from your check-ins? (yes/no)`
+              );
+              return c.json({ ok: true });
+            }
+            // KV write failed — skip cleanup offer, fall through to normal flow
+            delete session.pendingCleanup;
+          }
+        }
+      } catch {
+        streakResponse = completed ? "Logged!" : "Noted.";
+      }
+
       session.currentIndex++;
 
       // Check if there are more questions
       if (session.currentIndex < session.habitIds.length) {
-        // Update session and send next question
+        // Update session and send personality response + next question
         await c.env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 });
         await sendTelegramMessage(
           c.env,
           chatId,
-          session.questions[session.currentIndex]
+          `${streakResponse}\n\n${session.questions[session.currentIndex]}`
         );
       } else {
         // All done — delete session and send summary
@@ -411,7 +528,7 @@ webhooks.post("/telegram", async (c) => {
         await sendTelegramMessage(
           c.env,
           chatId,
-          `Habit check-in complete!\n\n${summary}`
+          `${streakResponse}\n\nHabit check-in complete!\n\n${summary}`
         );
       }
 

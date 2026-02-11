@@ -36,6 +36,8 @@ settings.get("/", async (c) => {
     voiceStyle: user.voiceStyle,
     voiceNotes: user.voiceNotes,
     digestNotifyEmail: !!user.digestNotifyEmail,
+    botPersonality: user.botPersonality ?? "encouraging",
+    habitCheckinTime: user.habitCheckinTime,
   });
 });
 
@@ -55,6 +57,14 @@ const updateSettingsSchema = z.object({
     .optional(),
   voiceNotes: z.string().max(500).optional(),
   digestNotifyEmail: z.boolean().optional(),
+  botPersonality: z
+    .enum(["encouraging", "drill_sergeant", "chill", "coach"])
+    .optional(),
+  habitCheckinTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Must be HH:MM in 00:00-23:59 range")
+    .optional()
+    .nullable(),
 });
 
 // PUT /api/settings — update settings
@@ -74,11 +84,12 @@ settings.put("/", async (c) => {
 
   const db = createDb(c.env.DB);
 
-  // Convert boolean to integer for D1
-  const updateData: Record<string, unknown> = { ...parsed.data };
-  if (typeof updateData.digestNotifyEmail === "boolean") {
-    updateData.digestNotifyEmail = updateData.digestNotifyEmail ? 1 : 0;
-  }
+  // Build typed update data, converting boolean to integer for D1
+  const { digestNotifyEmail, ...rest } = parsed.data;
+  const updateData: Parameters<typeof updateUser>[2] = {
+    ...rest,
+    ...(digestNotifyEmail !== undefined && { digestNotifyEmail: digestNotifyEmail ? 1 : 0 }),
+  };
 
   const user = await updateUser(db, userId, updateData);
 
@@ -92,6 +103,8 @@ settings.put("/", async (c) => {
     voiceStyle: user.voiceStyle,
     voiceNotes: user.voiceNotes,
     digestNotifyEmail: !!user.digestNotifyEmail,
+    botPersonality: user.botPersonality ?? "encouraging",
+    habitCheckinTime: user.habitCheckinTime,
   });
 });
 
