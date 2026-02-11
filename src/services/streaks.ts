@@ -23,10 +23,10 @@ export interface JournalStreakData {
 export async function getHabitStreak(
   db: Database,
   habitId: string,
-  _userId: string,
+  userId: string,
   asOfDate: string
 ): Promise<HabitStreakData> {
-  const logs = await getHabitLogsForHabit(db, habitId, 60);
+  const logs = await getHabitLogsForHabit(db, habitId, userId, 60);
 
   if (logs.length === 0) {
     return { currentStreak: 0, consecutiveMisses: 0, totalCompletions: 0, totalDays: 0 };

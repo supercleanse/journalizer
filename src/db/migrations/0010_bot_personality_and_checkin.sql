@@ -12,3 +12,6 @@ UPDATE users SET habit_checkin_time = (
   AND habits.checkin_time IS NOT NULL AND habits.is_active = 1
 ) WHERE habit_checkin_time IS NULL
 AND EXISTS (SELECT 1 FROM habits WHERE habits.user_id = users.id AND habits.checkin_time IS NOT NULL);
+
+-- Clear per-habit checkin times now that they're migrated to user level
+UPDATE habits SET checkin_time = NULL WHERE checkin_time IS NOT NULL;

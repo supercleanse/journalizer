@@ -1076,11 +1076,11 @@ export async function getActiveHabitsForUser(db: Database, userId: string) {
     .orderBy(habits.sortOrder, habits.createdAt);
 }
 
-export async function getHabitLogsForHabit(db: Database, habitId: string, limit = 60) {
+export async function getHabitLogsForHabit(db: Database, habitId: string, userId: string, limit = 60) {
   return db
     .select()
     .from(habitLogs)
-    .where(eq(habitLogs.habitId, habitId))
+    .where(and(eq(habitLogs.habitId, habitId), eq(habitLogs.userId, userId)))
     .orderBy(desc(habitLogs.logDate))
     .limit(limit);
 }

@@ -429,6 +429,16 @@ webhooks.post("/telegram", async (c) => {
       const habitId = session.habitIds[session.currentIndex];
       const habitName = session.names[session.currentIndex];
 
+      // Compute streak BEFORE recording the answer (so counts reflect prior state)
+      const personality = (user.botPersonality as BotPersonality) || "encouraging";
+      let streakResponse: string;
+      let preStreak: Awaited<ReturnType<typeof getHabitStreak>> | null = null;
+      try {
+        preStreak = await getHabitStreak(db, habitId, session.userId, session.date);
+      } catch {
+        // Streak computation failed — continue without it
+      }
+
       // Record the answer
       await upsertHabitLog(db, {
         id: crypto.randomUUID(),
@@ -441,33 +451,34 @@ webhooks.post("/telegram", async (c) => {
 
       session.answers[habitId] = completed;
 
-      // Compute streak for personality response
-      const personality = (user.botPersonality as BotPersonality) || "encouraging";
-      let streakResponse: string;
       try {
-        const streak = await getHabitStreak(db, habitId, session.userId, session.date);
+        // Adjust streak counts to include today's answer
+        const streak = preStreak ?? { currentStreak: 0, consecutiveMisses: 0, totalCompletions: 0, totalDays: 0 };
+        const adjustedStreak = completed
+          ? { ...streak, currentStreak: streak.currentStreak + 1, consecutiveMisses: 0 }
+          : { ...streak, consecutiveMisses: streak.consecutiveMisses + 1, currentStreak: 0 };
 
         // Generate personality-aware response
         if (c.env.ANTHROPIC_API_KEY) {
           streakResponse = await generateHabitResponse(c.env.ANTHROPIC_API_KEY, {
             habitName,
             completed,
-            currentStreak: streak.currentStreak,
-            consecutiveMisses: streak.consecutiveMisses,
+            currentStreak: adjustedStreak.currentStreak,
+            consecutiveMisses: adjustedStreak.consecutiveMisses,
             personality,
           });
         } else {
           streakResponse = getStaticHabitResponse({
             habitName,
             completed,
-            currentStreak: streak.currentStreak,
-            consecutiveMisses: streak.consecutiveMisses,
+            currentStreak: adjustedStreak.currentStreak,
+            consecutiveMisses: adjustedStreak.consecutiveMisses,
             personality,
           });
         }
 
         // Check auto-cleanup: 7+ consecutive misses
-        if (!completed && streak.consecutiveMisses >= 7) {
+        if (!completed && adjustedStreak.consecutiveMisses >= 7) {
           const habit = await getHabitById(db, habitId, session.userId);
           const lastOffered = habit?.lastCleanupOfferedAt;
           const cooldownExpired = !lastOffered ||
@@ -477,13 +488,17 @@ webhooks.post("/telegram", async (c) => {
             // Set pending cleanup — ask user before continuing
             session.currentIndex++;
             session.pendingCleanup = { habitId, habitName };
-            await c.env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 });
-            await sendTelegramMessage(
-              c.env,
-              chatId,
-              `${streakResponse}\n\nYou've missed "${habitName}" for ${streak.consecutiveMisses} days in a row. Want me to remove it from your check-ins? (yes/no)`
-            );
-            return c.json({ ok: true });
+            const kvWriteOk = await c.env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 }).then(() => true, () => false);
+            if (kvWriteOk) {
+              await sendTelegramMessage(
+                c.env,
+                chatId,
+                `${streakResponse}\n\nYou've missed "${habitName}" for ${adjustedStreak.consecutiveMisses} days in a row. Want me to remove it from your check-ins? (yes/no)`
+              );
+              return c.json({ ok: true });
+            }
+            // KV write failed — skip cleanup offer, fall through to normal flow
+            delete session.pendingCleanup;
           }
         }
       } catch {

@@ -431,6 +431,11 @@ export async function handleCron(env: Env): Promise<void> {
         const existingSession = await env.KV.get(sessionKey);
         if (existingSession) continue;
 
+        // Skip if already sent today (deduplication guard for expired sessions)
+        const sentTodayKey = `habit_checkin_sent:${userRow.userId}:${local.dateString}`;
+        const alreadySent = await env.KV.get(sentTodayKey);
+        if (alreadySent) continue;
+
         // Get all active habits for this user
         const activeHabits = await getActiveHabitsForUser(db, userRow.userId);
         if (activeHabits.length === 0) continue;
@@ -452,6 +457,8 @@ export async function handleCron(env: Env): Promise<void> {
           date: local.dateString,
         };
         await env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 });
+        // Mark this user+date so we don't re-send if session expires (TTL: rest of day + buffer)
+        await env.KV.put(sentTodayKey, "1", { expirationTtl: 86400 });
 
         // Send first question
         await sendTelegramMessage(
