@@ -26,10 +26,12 @@ export function cleanFillerWords(text: string): string {
   for (const filler of fillers) {
     // Between commas: ", um," → ","
     cleaned = cleaned.replace(new RegExp(`,\\s*\\b${filler}\\b\\s*,`, 'gi'), ',');
-    // At start of text: "Um, ..." → "..."
-    cleaned = cleaned.replace(new RegExp(`^\\b${filler}\\b[,.]?\\s*`, 'i'), '');
+    // At start of text: "Um, ..." → "..." (requires whitespace after to avoid orphaning punctuation)
+    cleaned = cleaned.replace(new RegExp(`^\\b${filler}\\b[,.]?\\s+`, 'i'), '');
     // After sentence boundary: ". Um, " → ". "
     cleaned = cleaned.replace(new RegExp(`([.!?])\\s*\\b${filler}\\b[,.]?\\s+`, 'gi'), '$1 ');
+    // At end of text after comma: "going, um" → "going"
+    cleaned = cleaned.replace(new RegExp(`,\\s*\\b${filler}\\b[,.]?\\s*$`, 'gi'), '');
   }
 
   // "like" only when clearly a filler (between commas): ", like," → ","
@@ -65,7 +67,7 @@ export function cleanFillerWords(text: string): string {
 /**
  * Transcribe audio using Cloudflare Workers AI (Whisper model).
  */
-const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB (Telegram bot file limit)
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB (Whisper model input limit)
 
 export async function transcribeAudio(
   ai: Ai,

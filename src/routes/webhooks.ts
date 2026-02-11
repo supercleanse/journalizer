@@ -172,6 +172,11 @@ async function processJournalMessage(
           }).catch(() => {});
         }
       } else {
+        await sendTelegramMessage(
+          env,
+          chatId,
+          "Couldn't download the file from Telegram. It may be too large (>20MB). Try a shorter recording."
+        ).catch(() => {});
         await logProcessing(db, {
           id: crypto.randomUUID(),
           entryId,

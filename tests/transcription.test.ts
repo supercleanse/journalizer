@@ -185,4 +185,14 @@ describe("cleanFillerWords", () => {
     expect(cleanFillerWords("Um, the cat sat down.")).toBe("The cat sat down.");
     expect(cleanFillerWords("OK. Uh, the next thing.")).toBe("OK. The next thing.");
   });
+
+  it("preserves fillers followed by exclamation/question marks", () => {
+    expect(cleanFillerWords("Ah! That was great.")).toBe("Ah! That was great.");
+    expect(cleanFillerWords("Uh? What do you mean?")).toBe("Uh? What do you mean?");
+  });
+
+  it("removes trailing fillers", () => {
+    expect(cleanFillerWords("I was going, um")).toBe("I was going");
+    expect(cleanFillerWords("That was interesting, uh.")).toBe("That was interesting");
+  });
 });
