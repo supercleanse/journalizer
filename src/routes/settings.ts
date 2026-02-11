@@ -36,6 +36,8 @@ settings.get("/", async (c) => {
     voiceStyle: user.voiceStyle,
     voiceNotes: user.voiceNotes,
     digestNotifyEmail: !!user.digestNotifyEmail,
+    botPersonality: user.botPersonality ?? "encouraging",
+    habitCheckinTime: user.habitCheckinTime,
   });
 });
 
@@ -55,6 +57,14 @@ const updateSettingsSchema = z.object({
     .optional(),
   voiceNotes: z.string().max(500).optional(),
   digestNotifyEmail: z.boolean().optional(),
+  botPersonality: z
+    .enum(["encouraging", "drill_sergeant", "chill", "coach"])
+    .optional(),
+  habitCheckinTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+    .optional()
+    .nullable(),
 });
 
 // PUT /api/settings — update settings
@@ -92,6 +102,8 @@ settings.put("/", async (c) => {
     voiceStyle: user.voiceStyle,
     voiceNotes: user.voiceNotes,
     digestNotifyEmail: !!user.digestNotifyEmail,
+    botPersonality: user.botPersonality ?? "encouraging",
+    habitCheckinTime: user.habitCheckinTime,
   });
 });
 

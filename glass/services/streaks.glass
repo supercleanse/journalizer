@@ -1,0 +1,35 @@
+=== Glass Unit ===
+id: services.streaks
+version: 0.1.0
+language: typescript
+
+=== Intent ===
+purpose: Compute streak data for habits and journal entries. Provides current streak (consecutive completions), consecutive misses, and totals by analyzing habit logs and entry dates in reverse chronological order.
+source:
+  kind: prd
+  reference: "Bot Personality & Streak-Aware Responses — Streak Computation"
+parent: index
+stakeholder: system
+subIntents: []
+approvalStatus: approved
+
+=== Contract ===
+requires:
+  - "Habit logs exist in D1 ordered by log_date DESC"
+  - "Journal entries exist in D1 with entry_date field"
+guarantees:
+  on_success:
+    - "getHabitStreak returns currentStreak, consecutiveMisses, totalCompletions, totalDays"
+    - "currentStreak counts consecutive completed=1 days from most recent backwards"
+    - "consecutiveMisses counts consecutive completed=0 days from most recent backwards"
+    - "Only one of currentStreak or consecutiveMisses is non-zero at any time"
+    - "getJournalStreak returns currentStreak and daysSinceLastEntry"
+    - "Journal streak counts consecutive days with at least one non-digest entry"
+    - "daysSinceLastEntry is 0 if an entry exists for asOfDate"
+  on_failure:
+    - "Returns zeroed data if no logs or entries exist"
+invariants:
+  - "Streak computation is pure — depends only on log data and asOfDate"
+  - "Logs analyzed up to 60 days back (configurable limit)"
+fails:
+  DatabaseError: "Propagate to caller"

@@ -18,6 +18,13 @@ const voiceStyles = [
   { value: "polished", label: "Polished" },
 ];
 
+const botPersonalities = [
+  { value: "encouraging", label: "Encouraging", description: "Warm, supportive, celebratory" },
+  { value: "drill_sergeant", label: "Drill Sergeant", description: "Tough love, blunt, demanding" },
+  { value: "chill", label: "Chill / Zen", description: "Calm, serene, non-judgmental" },
+  { value: "coach", label: "Coach", description: "Firm, goal-oriented, strategic" },
+];
+
 function getUtcOffset(tz: string): string {
   try {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -205,6 +212,7 @@ export default function Settings() {
     voiceStyle: "natural",
     voiceNotes: "",
     digestNotifyEmail: false,
+    botPersonality: "encouraging",
   });
 
   useEffect(() => {
@@ -217,7 +225,9 @@ export default function Settings() {
         voiceStyle: settings.voiceStyle ?? "natural",
         voiceNotes: settings.voiceNotes ?? "",
         digestNotifyEmail: settings.digestNotifyEmail ?? false,
+        botPersonality: settings.botPersonality ?? "encouraging",
       });
+      setHabitCheckinTime(settings.habitCheckinTime ?? "");
     }
   }, [settings]);
 
@@ -228,6 +238,19 @@ export default function Settings() {
       toast.success("Settings saved");
     },
     onError: () => toast.error("Failed to save settings"),
+  });
+
+  // ── Habit check-in time ──
+  const [habitCheckinTime, setHabitCheckinTime] = useState("");
+
+  const updateCheckinTimeMutation = useMutation({
+    mutationFn: (time: string | null) =>
+      api.put("/api/settings", { habitCheckinTime: time }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      toast.success("Check-in time saved");
+    },
+    onError: () => toast.error("Failed to save check-in time"),
   });
 
   // ── Telegram linking ──
@@ -357,15 +380,14 @@ export default function Settings() {
   const [newHabit, setNewHabit] = useState({
     name: "",
     question: "",
-    checkinTime: "",
   });
 
   const createHabitMutation = useMutation({
-    mutationFn: (data: { name: string; question: string; checkinTime?: string | null }) =>
+    mutationFn: (data: { name: string; question: string }) =>
       api.post("/api/habits", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
-      setNewHabit({ name: "", question: "", checkinTime: "" });
+      setNewHabit({ name: "", question: "" });
       toast.success("Habit created");
     },
     onError: () => toast.error("Failed to create habit"),
@@ -476,6 +498,28 @@ export default function Settings() {
               className="w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm"
               placeholder="Additional instructions for AI polishing"
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Bot Personality
+            </label>
+            <select
+              value={form.botPersonality}
+              onChange={(e) =>
+                setForm({ ...form, botPersonality: e.target.value })
+              }
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            >
+              {botPersonalities.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label} — {p.description}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              Controls tone of Telegram habit check-in responses and journal reminders
+            </p>
           </div>
 
           <button
@@ -892,9 +936,51 @@ export default function Settings() {
           <h2 className="mb-1 text-lg font-medium text-gray-900">
             Habits
           </h2>
-          <p className="mb-4 text-sm text-gray-500">
-            Track daily habits with yes/no check-ins. Optionally get asked via Telegram at a set time.
+          <p className="mb-2 text-sm text-gray-500">
+            Track daily habits with yes/no check-ins.
           </p>
+
+          {/* Unified check-in time */}
+          {settings?.telegramLinked && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-gray-100 bg-gray-50 px-3 py-2">
+              <label className="text-sm font-medium text-gray-700">
+                Daily Telegram check-in:
+              </label>
+              <input
+                type="time"
+                value={habitCheckinTime}
+                onChange={(e) => setHabitCheckinTime(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (habitCheckinTime) {
+                    updateCheckinTimeMutation.mutate(habitCheckinTime);
+                  }
+                }}
+                disabled={!habitCheckinTime || updateCheckinTimeMutation.isPending}
+                className="rounded-md bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                Save
+              </button>
+              {settings?.habitCheckinTime && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHabitCheckinTime("");
+                    updateCheckinTimeMutation.mutate(null);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-500 hover:bg-gray-50"
+                >
+                  Clear
+                </button>
+              )}
+              <p className="w-full text-xs text-gray-400">
+                All habits will be asked at this time via Telegram.
+              </p>
+            </div>
+          )}
 
           {/* Existing habits */}
           {userHabits.length > 0 && (
@@ -931,11 +1017,6 @@ export default function Settings() {
                       <span className="ml-2 text-gray-400">
                         {h.question}
                       </span>
-                      {h.checkinTime && (
-                        <span className="ml-2 text-xs text-blue-500">
-                          Telegram at {h.checkinTime}
-                        </span>
-                      )}
                     </div>
                   </div>
                   <button
@@ -968,36 +1049,21 @@ export default function Settings() {
                 placeholder="Question (e.g., Did you exercise today?)"
                 className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm"
               />
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500">Telegram check-in:</label>
-                  <input
-                    type="time"
-                    value={newHabit.checkinTime}
-                    onChange={(e) => setNewHabit({ ...newHabit, checkinTime: e.target.value })}
-                    className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (newHabit.name.trim() && newHabit.question.trim()) {
-                      createHabitMutation.mutate({
-                        name: newHabit.name.trim(),
-                        question: newHabit.question.trim(),
-                        checkinTime: newHabit.checkinTime || null,
-                      });
-                    }
-                  }}
-                  disabled={!newHabit.name.trim() || !newHabit.question.trim() || createHabitMutation.isPending}
-                  className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
-              <p className="text-xs text-gray-400">
-                Leave time empty for web-only tracking (no Telegram questions).
-              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (newHabit.name.trim() && newHabit.question.trim()) {
+                    createHabitMutation.mutate({
+                      name: newHabit.name.trim(),
+                      question: newHabit.question.trim(),
+                    });
+                  }
+                }}
+                disabled={!newHabit.name.trim() || !newHabit.question.trim() || createHabitMutation.isPending}
+                className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                Add
+              </button>
             </div>
           </div>
         </div>

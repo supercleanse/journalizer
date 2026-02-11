@@ -7,7 +7,8 @@ import {
   getLastEntryDatesByUserIds,
   updateReminderLastSent,
   logProcessing,
-  getActiveHabitsWithCheckinTime,
+  getUsersWithHabitCheckinTime,
+  getActiveHabitsForUser,
   getHabitLogsForDate,
 } from "../db/queries";
 import { sendTelegramMessage } from "./telegram";
@@ -19,6 +20,12 @@ import {
   buildDigestNotificationEmailHtml,
 } from "./digestNotification";
 import { sendEmail } from "./email";
+import { getJournalStreak } from "./streaks";
+import {
+  generateJournalReminderMessage,
+  getStaticJournalReminder,
+  type BotPersonality,
+} from "./botPersonality";
 
 // Glass contract: failure modes (soft failures in cron loop)
 export { SMSDeliveryFailed, UserNotFound, TimezoneInvalid, DigestGenerationFailed } from "../lib/errors";
@@ -31,6 +38,10 @@ export interface HabitCheckinSession {
   currentIndex: number;
   answers: Record<string, boolean>;
   date: string;
+  pendingCleanup?: {
+    habitId: string;
+    habitName: string;
+  };
 }
 
 const DAILY_MESSAGES = [
@@ -312,12 +323,47 @@ export async function handleCron(env: Env): Promise<void> {
 
       if (!shouldSend) continue;
 
-      const message = selectMessage(
-        reminder.reminderType,
-        reminder.id,
-        dailyQuip,
-        daysSinceLastEntry
-      );
+      // Build streak-aware message for journal reminders
+      let message: string;
+      const personality = (user.botPersonality as BotPersonality) || "encouraging";
+
+      if (reminder.reminderType === "smart" || reminder.reminderType === "daily" || reminder.reminderType === "weekly" || reminder.reminderType === "monthly") {
+        // Get journal streak data for personalized messages
+        let streakMessage: string | null = null;
+        try {
+          const journalStreak = await getJournalStreak(db, user.id, local.dateString);
+          if (personality === "encouraging") {
+            // Use static template for encouraging (no AI call)
+            streakMessage = getStaticJournalReminder({
+              journalStreak: journalStreak.currentStreak,
+              daysSinceLastEntry: journalStreak.daysSinceLastEntry,
+              personality,
+            });
+          } else if (env.ANTHROPIC_API_KEY) {
+            // Use AI for other personalities
+            streakMessage = await generateJournalReminderMessage(
+              env.ANTHROPIC_API_KEY,
+              {
+                journalStreak: journalStreak.currentStreak,
+                daysSinceLastEntry: journalStreak.daysSinceLastEntry,
+                personality,
+              }
+            );
+          }
+        } catch {
+          // Streak computation failed — fall through to default message
+        }
+
+        if (streakMessage && reminder.reminderType !== "smart") {
+          message = `${dailyQuip}\n\n${streakMessage}`;
+        } else if (streakMessage) {
+          message = streakMessage;
+        } else {
+          message = selectMessage(reminder.reminderType, reminder.id, dailyQuip, daysSinceLastEntry);
+        }
+      } else {
+        message = selectMessage(reminder.reminderType, reminder.id, dailyQuip, daysSinceLastEntry);
+      }
 
       const sent = await sendTelegramMessage(env, chatId, message);
 
@@ -358,31 +404,17 @@ export async function handleCron(env: Env): Promise<void> {
     }
   }
 
-  // ── Habit Check-Ins ──────────────────────────────────────────────
+  // ── Habit Check-Ins (Unified User-Level Time) ──────────────────
   try {
-    const habitsWithCheckin = await getActiveHabitsWithCheckinTime(db);
-    if (habitsWithCheckin.length === 0) return;
+    const usersWithCheckin = await getUsersWithHabitCheckinTime(db);
+    if (usersWithCheckin.length === 0) return;
 
-    // Group habits by userId
-    const habitsByUser = new Map<string, typeof habitsWithCheckin>();
-    for (const habit of habitsWithCheckin) {
-      const list = habitsByUser.get(habit.userId) ?? [];
-      list.push(habit);
-      habitsByUser.set(habit.userId, list);
-    }
-
-    // Fetch all users who have habits with check-in times
-    const habitUserIds = [...habitsByUser.keys()];
-    const habitUsersArr = await getUsersByIds(db, habitUserIds);
-    const habitUsersMap = new Map(habitUsersArr.map((u) => [u.id, u]));
-
-    for (const [userId, userHabits] of habitsByUser) {
+    for (const userRow of usersWithCheckin) {
       try {
-        const user = habitUsersMap.get(userId);
-        const chatId = user?.telegramChatId;
-        if (!user || !chatId) continue;
+        const chatId = userRow.telegramChatId;
+        if (!chatId || !userRow.habitCheckinTime) continue;
 
-        let timezone = user.timezone || "UTC";
+        let timezone = userRow.timezone || "UTC";
         let local;
         try {
           local = getUserLocalTime(now, timezone);
@@ -391,26 +423,27 @@ export async function handleCron(env: Env): Promise<void> {
           local = getUserLocalTime(now, timezone);
         }
 
-        // Filter habits whose checkinTime falls within the current 15-min window
-        const dueHabits = userHabits.filter((h) =>
-          timeMatches(h.checkinTime, local.hour, local.minute)
-        );
-        if (dueHabits.length === 0) continue;
+        // Check if user's habitCheckinTime falls in current 15-min window
+        if (!timeMatches(userRow.habitCheckinTime, local.hour, local.minute)) continue;
 
         // Skip if a session is already active for this chat
         const sessionKey = `habit_checkin:${chatId}`;
         const existingSession = await env.KV.get(sessionKey);
         if (existingSession) continue;
 
+        // Get all active habits for this user
+        const activeHabits = await getActiveHabitsForUser(db, userRow.userId);
+        if (activeHabits.length === 0) continue;
+
         // Skip habits already answered today
-        const todayLogs = await getHabitLogsForDate(db, userId, local.dateString);
+        const todayLogs = await getHabitLogsForDate(db, userRow.userId, local.dateString);
         const answeredHabitIds = new Set(todayLogs.map((l) => l.habitId));
-        const unansweredHabits = dueHabits.filter((h) => !answeredHabitIds.has(h.id));
+        const unansweredHabits = activeHabits.filter((h) => !answeredHabitIds.has(h.id));
         if (unansweredHabits.length === 0) continue;
 
         // Create KV session
         const session: HabitCheckinSession = {
-          userId,
+          userId: userRow.userId,
           habitIds: unansweredHabits.map((h) => h.id),
           questions: unansweredHabits.map((h) => h.question),
           names: unansweredHabits.map((h) => h.name),
@@ -432,7 +465,7 @@ export async function handleCron(env: Env): Promise<void> {
           action: "habit_checkin_started",
           status: "success",
           details: JSON.stringify({
-            userId,
+            userId: userRow.userId,
             habitCount: unansweredHabits.length,
             date: local.dateString,
           }),
@@ -443,7 +476,7 @@ export async function handleCron(env: Env): Promise<void> {
           action: "habit_checkin_started",
           status: "error",
           details: JSON.stringify({
-            userId,
+            userId: userRow.userId,
             error: err instanceof Error ? err.message : "Unknown error",
           }),
         }).catch(() => {});

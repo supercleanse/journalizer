@@ -6,6 +6,8 @@ export interface User {
   voiceStyle: string;
   voiceNotes: string | null;
   digestNotifyEmail: boolean;
+  botPersonality: string;
+  habitCheckinTime: string | null;
 }
 
 export interface Entry {
