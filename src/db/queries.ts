@@ -925,6 +925,7 @@ export async function getActiveEmailSubscriptions(db: Database) {
       userEmail: users.email,
       userDisplayName: users.displayName,
       userTimezone: users.timezone,
+      userBotPersonality: users.botPersonality,
     })
     .from(emailSubscriptions)
     .innerJoin(users, eq(emailSubscriptions.userId, users.id))

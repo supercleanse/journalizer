@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ExportEntry, HabitData } from "./export";
+import { PERSONALITY_PROMPTS, type BotPersonality } from "./botPersonality";
 
 export interface EmailBodyStats {
   daysJournaled: number;
@@ -39,6 +40,7 @@ export async function generateEmailAIContent(
   periodLabel: string,
   startDate: string,
   endDate: string,
+  personality: BotPersonality = "encouraging",
 ): Promise<{ quip: string; synopsis: string[] }> {
   const entrySnippets = entries
     .slice(0, 50)
@@ -49,20 +51,22 @@ export async function generateEmailAIContent(
     })
     .join("\n\n");
 
-  const systemPrompt = `You generate short, fun email content for a journaling app called Journalizer.
+  const personalityInstruction = PERSONALITY_PROMPTS[personality];
+
+  const systemPrompt = `You generate short email content for a journaling app called Journalizer.
+${personalityInstruction}
 You will receive journal entry snippets from a user's ${periodLabel.toLowerCase()} period (${startDate} to ${endDate}).
 
 Respond with ONLY a JSON object (no markdown fences, no extra text):
 {
-  "quip": "A fun 1-2 sentence congratulations",
+  "quip": "A 1-2 sentence congratulations matching the personality above",
   "synopsis": ["bullet 1", "bullet 2", "bullet 3"]
 }
 
 Rules for the quip:
-- Be warm, genuine, and slightly playful
+- Match the personality tone described above
 - Reference a specific detail from their journal entries to make it personal
 - Keep it to 1-2 sentences max
-- Do not be sappy or over-the-top
 
 Rules for the synopsis:
 - Exactly 3-4 bullet points
@@ -161,6 +165,7 @@ export async function buildPersonalizedEmailHtml(
     startDate: string;
     endDate: string;
     habitData?: HabitData;
+    personality?: BotPersonality;
   },
 ): Promise<string> {
   const stats = computeEntryStats(entries);
@@ -176,6 +181,7 @@ export async function buildPersonalizedEmailHtml(
         options.periodLabel,
         options.startDate,
         options.endDate,
+        options.personality,
       );
       quip = aiContent.quip;
       synopsis = aiContent.synopsis;

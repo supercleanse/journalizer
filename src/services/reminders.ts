@@ -24,7 +24,8 @@ import { getJournalStreak } from "./streaks";
 import {
   generateJournalReminderMessage,
   getStaticJournalReminder,
-  type BotPersonality,
+  getStaticCheckinIntro,
+  resolvePersonality,
 } from "./botPersonality";
 
 // Glass contract: failure modes (soft failures in cron loop)
@@ -200,11 +201,13 @@ export async function handleCron(env: Env): Promise<void> {
         // Send notifications if digest was created
         if (digestContent) {
           try {
+            const digestPersonality = resolvePersonality(user.botPersonality);
             const notifContent = await generateDigestNotificationContent(
               env,
               user.id,
               targetDate,
-              digestContent
+              digestContent,
+              digestPersonality
             );
 
             // Enhanced Telegram notification
@@ -245,12 +248,6 @@ export async function handleCron(env: Env): Promise<void> {
   }
 
   // ── Reminders ────────────────────────────────────────────────────
-  let dailyQuip: string;
-  try {
-    dailyQuip = await getDailyQuip(env);
-  } catch {
-    dailyQuip = getFallbackQuip(new Date().toISOString().split("T")[0]);
-  }
   const activeReminders = await getAllActiveReminders(db);
 
   // Batch-fetch all users and last entry dates to avoid N+1 queries
@@ -260,6 +257,9 @@ export async function handleCron(env: Env): Promise<void> {
     getLastEntryDatesByUserIds(db, userIds),
   ]);
   const usersMap = new Map(usersArr.map((u) => [u.id, u]));
+
+  // Cache quips per personality to avoid redundant KV reads in the loop
+  const quipCache = new Map<string, string>();
 
   for (const reminder of activeReminders) {
     try {
@@ -325,7 +325,20 @@ export async function handleCron(env: Env): Promise<void> {
 
       // Build streak-aware message for journal reminders
       let message: string;
-      const personality = (user.botPersonality as BotPersonality) || "encouraging";
+      const personality = resolvePersonality(user.botPersonality);
+
+      // Get personality-aware daily quip (local cache + KV-cached per personality)
+      let dailyQuip: string;
+      if (quipCache.has(personality)) {
+        dailyQuip = quipCache.get(personality)!;
+      } else {
+        try {
+          dailyQuip = await getDailyQuip(env, personality);
+        } catch {
+          dailyQuip = getFallbackQuip(new Date().toISOString().split("T")[0], personality);
+        }
+        quipCache.set(personality, dailyQuip);
+      }
 
       if (reminder.reminderType === "smart" || reminder.reminderType === "daily" || reminder.reminderType === "weekly" || reminder.reminderType === "monthly") {
         // Get journal streak data for personalized messages
@@ -460,11 +473,13 @@ export async function handleCron(env: Env): Promise<void> {
         // Mark this user+date so we don't re-send if session expires (TTL: rest of day + buffer)
         await env.KV.put(sentTodayKey, "1", { expirationTtl: 86400 });
 
-        // Send first question
+        // Send first question with personality-aware intro
+        const checkinPersonality = resolvePersonality(userRow.botPersonality);
+        const checkinIntro = getStaticCheckinIntro(checkinPersonality, unansweredHabits.length);
         await sendTelegramMessage(
           env,
           chatId,
-          `Habit check-in time!\n\n${session.questions[0]}`
+          `${checkinIntro}\n\n${session.questions[0]}`
         );
 
         await logProcessing(db, {

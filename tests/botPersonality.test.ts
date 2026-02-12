@@ -2,6 +2,17 @@ import { describe, it, expect } from "vitest";
 import {
   getStaticHabitResponse,
   getStaticJournalReminder,
+  getStaticEntrySavedAck,
+  getStaticTranscriptionCompleteMsg,
+  getStaticCancelMsg,
+  getStaticInvalidResponseMsg,
+  getStaticCleanupOffer,
+  getStaticCleanupResponse,
+  getStaticCheckinSummaryLine,
+  getStaticCheckinIntro,
+  resolvePersonality,
+  sanitizeJournalContent,
+  generateAccountabilityInsight,
   type BotPersonality,
 } from "../src/services/botPersonality";
 
@@ -153,5 +164,168 @@ describe("BotPersonality type", () => {
   it("accepts all valid personalities", () => {
     const valid: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
     expect(valid).toHaveLength(4);
+  });
+});
+
+describe("resolvePersonality", () => {
+  it("returns valid personality strings as-is", () => {
+    expect(resolvePersonality("drill_sergeant")).toBe("drill_sergeant");
+    expect(resolvePersonality("chill")).toBe("chill");
+    expect(resolvePersonality("coach")).toBe("coach");
+    expect(resolvePersonality("encouraging")).toBe("encouraging");
+  });
+
+  it("returns encouraging for null/undefined/invalid", () => {
+    expect(resolvePersonality(null)).toBe("encouraging");
+    expect(resolvePersonality(undefined)).toBe("encouraging");
+    expect(resolvePersonality("invalid")).toBe("encouraging");
+    expect(resolvePersonality("")).toBe("encouraging");
+  });
+});
+
+describe("sanitizeJournalContent", () => {
+  it("preserves newlines and tabs", () => {
+    expect(sanitizeJournalContent("line1\nline2\ttab")).toBe("line1\nline2\ttab");
+  });
+
+  it("strips dangerous control characters", () => {
+    expect(sanitizeJournalContent("abc\x00def\x01ghi")).toBe("abcdefghi");
+  });
+
+  it("truncates to specified max length", () => {
+    const long = "a".repeat(300);
+    expect(sanitizeJournalContent(long, 100).length).toBe(100);
+  });
+});
+
+describe("getStaticEntrySavedAck", () => {
+  const personalities: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
+
+  it("returns non-empty string for all personalities and entry types", () => {
+    for (const p of personalities) {
+      for (const t of ["text", "audio", "video", "photo"]) {
+        const msg = getStaticEntrySavedAck(p, t);
+        expect(msg).toBeTruthy();
+        expect(typeof msg).toBe("string");
+      }
+    }
+  });
+
+  it("mentions media processing for audio/video", () => {
+    const msg = getStaticEntrySavedAck("encouraging", "audio");
+    expect(msg.toLowerCase()).toMatch(/processing|media/);
+  });
+});
+
+describe("getStaticTranscriptionCompleteMsg", () => {
+  const personalities: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
+
+  it("returns non-empty string for all personalities and outcomes", () => {
+    for (const p of personalities) {
+      expect(getStaticTranscriptionCompleteMsg(p, true)).toBeTruthy();
+      expect(getStaticTranscriptionCompleteMsg(p, false)).toBeTruthy();
+    }
+  });
+
+  it("differentiates success and failure messages", () => {
+    const success = getStaticTranscriptionCompleteMsg("encouraging", true);
+    const failure = getStaticTranscriptionCompleteMsg("encouraging", false);
+    expect(success).not.toBe(failure);
+  });
+});
+
+describe("getStaticCancelMsg", () => {
+  const personalities: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
+
+  it("returns non-empty string for all personalities", () => {
+    for (const p of personalities) {
+      expect(getStaticCancelMsg(p)).toBeTruthy();
+    }
+  });
+});
+
+describe("getStaticInvalidResponseMsg", () => {
+  const personalities: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
+
+  it("returns non-empty string for all personalities", () => {
+    for (const p of personalities) {
+      expect(getStaticInvalidResponseMsg(p)).toBeTruthy();
+    }
+  });
+});
+
+describe("getStaticCleanupOffer", () => {
+  const personalities: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
+
+  it("returns non-empty string for all personalities", () => {
+    for (const p of personalities) {
+      expect(getStaticCleanupOffer(p, "Exercise", 10)).toBeTruthy();
+    }
+  });
+
+  it("includes habit name and miss count", () => {
+    const msg = getStaticCleanupOffer("encouraging", "Meditation", 8);
+    expect(msg).toContain("Meditation");
+    expect(msg).toContain("8");
+  });
+});
+
+describe("getStaticCleanupResponse", () => {
+  const personalities: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
+
+  it("returns non-empty string for deactivate and keep", () => {
+    for (const p of personalities) {
+      expect(getStaticCleanupResponse(p, "Running", "deactivated")).toBeTruthy();
+      expect(getStaticCleanupResponse(p, "Running", "kept")).toBeTruthy();
+    }
+  });
+
+  it("differentiates deactivated and kept messages", () => {
+    const deactivated = getStaticCleanupResponse("encouraging", "Running", "deactivated");
+    const kept = getStaticCleanupResponse("encouraging", "Running", "kept");
+    expect(deactivated).not.toBe(kept);
+  });
+});
+
+describe("getStaticCheckinSummaryLine", () => {
+  const personalities: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
+
+  it("returns non-empty string for all personalities", () => {
+    for (const p of personalities) {
+      expect(getStaticCheckinSummaryLine(p)).toBeTruthy();
+    }
+  });
+});
+
+describe("getStaticCheckinIntro", () => {
+  const personalities: BotPersonality[] = ["encouraging", "drill_sergeant", "chill", "coach"];
+
+  it("returns non-empty string for all personalities", () => {
+    for (const p of personalities) {
+      expect(getStaticCheckinIntro(p, 3)).toBeTruthy();
+    }
+  });
+
+  it("includes habit count", () => {
+    for (const p of personalities) {
+      expect(getStaticCheckinIntro(p, 5)).toContain("5");
+    }
+  });
+
+  it("handles singular habit count", () => {
+    const msg = getStaticCheckinIntro("drill_sergeant", 1);
+    expect(msg).toContain("1 habit ");
+    expect(msg).not.toContain("habits");
+  });
+});
+
+describe("generateAccountabilityInsight", () => {
+  it("returns null for empty snippets", async () => {
+    const result = await generateAccountabilityInsight("fake-key", {
+      personality: "encouraging",
+      recentEntrySnippets: [],
+      activeHabitNames: ["Exercise"],
+    });
+    expect(result).toBeNull();
   });
 });

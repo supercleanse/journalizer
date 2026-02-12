@@ -1,13 +1,13 @@
 === Glass Unit ===
 id: services.digestNotification
-version: 0.1.0
+version: 0.2.0
 language: typescript
 
 === Intent ===
-purpose: Generate AI-powered congratulatory notification content when a daily digest completes. Produces a cheeky quip and condensed synopsis for use in both Telegram and email notifications. Cached per user+date in KV to avoid duplicate AI calls on retries.
+purpose: Generate AI-powered personality-aware notification content when a daily digest completes. Produces a quip, condensed synopsis, and optional accountability insight for use in both Telegram and email notifications. Quips and AI prompts match the user's bot personality. Cached per user+date+personality in KV to avoid duplicate AI calls.
 source:
   kind: conversation
-  reference: "User request — digest completion email & enhanced telegram notifications"
+  reference: "Personality Voice Everywhere + Journal-Aware Accountability"
 parent: null
 stakeholder: user
 subIntents: []
@@ -18,21 +18,26 @@ requires:
   - "Digest content (polishedContent string) is available"
   - "ANTHROPIC_API_KEY configured for AI generation"
   - "KV namespace available for caching"
+  - "BotPersonality type from botPersonality module"
 guarantees:
   on_success:
-    - "generateDigestNotificationContent returns { quip, synopsis[] } from AI"
-    - "Result cached in KV with key digest_notif:{userId}:{date} and 48h TTL"
-    - "Quip is congratulatory, cheeky, warm, 1-2 sentences"
+    - "generateDigestNotificationContent returns { quip, synopsis[], accountability } from AI"
+    - "Result cached in KV with key digest_notif:{userId}:{date}:{personality} and 48h TTL"
+    - "Quip matches the user's bot personality tone"
     - "Synopsis is 2-3 bullet points summarizing the day's events"
-    - "buildDigestNotificationEmailHtml returns complete HTML email string"
-    - "formatDigestTelegramMessage returns plain text message with quip and synopsis"
+    - "Accountability is one sentence connecting journal themes to growth, or null"
+    - "DIGEST_CONGRATULATIONS_QUIPS is a per-personality Record with ~15 quips each"
+    - "getFallbackDigestQuip accepts optional personality parameter"
+    - "buildDigestNotificationEmailHtml renders accountability section when present"
+    - "formatDigestTelegramMessage appends accountability when present"
   on_failure:
-    - "AI failure falls back to static congratulatory quips with empty synopsis"
+    - "AI failure falls back to personality-specific static quips with empty synopsis and null accountability"
     - "KV cache miss or failure is non-fatal"
 invariants:
-  - "At most one AI call per user per date (KV dedup)"
+  - "At most one AI call per user per date per personality (KV dedup)"
   - "Digest content sent to AI is truncated to 2000 chars max"
   - "All user-derived text is HTML-escaped in email output"
+  - "Personality change invalidates KV cache (different key)"
 fails:
-  AnthropicError: "Fall back to static congratulatory quip, no synopsis"
+  AnthropicError: "Fall back to personality-specific static quip, no synopsis, null accountability"
   KVError: "Continue without caching"

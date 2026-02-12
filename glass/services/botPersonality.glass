@@ -4,7 +4,7 @@ version: 0.1.0
 language: typescript
 
 === Intent ===
-purpose: Generate personality-driven responses for habit check-ins and journal reminders. Supports four bot personalities (encouraging, drill_sergeant, chill, coach) with AI-generated responses via Claude Haiku and static template fallbacks.
+purpose: Generate personality-driven responses for habit check-ins, journal reminders, Telegram interactions, and accountability insights. Supports four bot personalities (encouraging, drill_sergeant, chill, coach) with AI-generated responses via Claude Haiku, static template messages for latency-sensitive interactions, and journal-aware accountability analysis. Exports sanitizeForPrompt and PERSONALITY_PROMPTS for use by other modules.
 source:
   kind: prd
   reference: "Bot Personality & Streak-Aware Responses — Personality Service"
@@ -29,13 +29,27 @@ guarantees:
     - "Static fallback functions return template responses when AI unavailable"
     - "getStaticHabitResponse returns a reasonable response without AI"
     - "getStaticJournalReminder returns a reasonable reminder without AI"
+    - "getStaticEntrySavedAck returns personality-specific entry acknowledgment (no AI call)"
+    - "getStaticTranscriptionCompleteMsg returns personality-specific transcription status"
+    - "getStaticCancelMsg returns personality-specific check-in cancel message"
+    - "getStaticInvalidResponseMsg returns personality-specific invalid input message"
+    - "getStaticCleanupOffer returns personality-specific habit cleanup offer"
+    - "getStaticCleanupResponse returns personality-specific cleanup result message"
+    - "getStaticCheckinSummaryLine returns personality-specific check-in summary"
+    - "getStaticCheckinIntro returns personality-specific check-in intro with habit count"
+    - "generateAccountabilityInsight returns journal-aware accountability observation or null"
+    - "sanitizeForPrompt exported for use by other modules"
+    - "PERSONALITY_PROMPTS exported for use by other modules"
   on_failure:
     - "AI failures fall back to static template responses"
     - "API errors do not propagate — always returns a string"
+    - "generateAccountabilityInsight returns null on failure (no static fallback)"
 invariants:
-  - "Response length kept under 100 tokens (~75 words)"
+  - "Response length kept under 100 tokens (~75 words) for habit/journal AI"
+  - "Accountability insight limited to 150 max_tokens"
   - "Bot personality is separate from journal polish voiceStyle"
   - "Each habit answer triggers at most one AI call"
+  - "Static functions make zero AI calls — suitable for latency-sensitive paths"
 fails:
   ApiError: "Fall back to static template"
   RateLimited: "Fall back to static template"

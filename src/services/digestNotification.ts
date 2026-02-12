@@ -1,86 +1,106 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Env } from "../types/env";
+import { PERSONALITY_PROMPTS, type BotPersonality } from "./botPersonality";
 
 export interface DigestNotificationContent {
   quip: string;
   synopsis: string[];
+  accountability: string | null;
 }
 
-export const DIGEST_CONGRATULATIONS_QUIPS = [
-  "Another day documented! Your future self just high-fived you.",
-  "Day: captured. Memories: secured. You: awesome.",
-  "Look at you, documenting your life like a responsible human.",
-  "Your journal just got a little thicker. And a little wiser.",
-  "Achievement unlocked: today has been thoroughly chronicled.",
-  "Another day in the books. Literally.",
-  "Your future memoir just got a new chapter. No pressure.",
-  "You journaled today. The internet can't say the same.",
-  "Today's memories are now officially tamper-proof.",
-  "Congratulations, you out-documented most of humanity today.",
-  "Your journal is doing a little happy dance right now.",
-  "Day logged. Feelings processed. You're basically a productivity guru.",
-  "Another entry in the vault. Your thoughts are safe here.",
-  "You showed up for yourself today. Your journal noticed.",
-  "Plot twist: you actually journaled today. Character development!",
-  "Your journal was starting to worry. Crisis averted.",
-  "Today's entry: filed under 'things future you will love reading.'",
-  "Not all heroes wear capes. Some just journal consistently.",
-  "Documented and dusted. Today is officially on the record.",
-  "Your journal's loyalty points just went up.",
-  "Another day, another beautifully captured slice of life.",
-  "You turned today into words. That's basically magic.",
-  "Your life story got a fresh page today. Keep going.",
-  "Journal entry complete. Treat yourself to something nice.",
-  "Today's thoughts? Saved. Tomorrow's gratitude? Guaranteed.",
-  "Your journal is glowing. That's the warm fuzzy feeling of consistency.",
-  "One more day preserved. Future you is already grateful.",
-  "You didn't let today slip through the cracks. Well done.",
-  "Your journal approves of today's life choices.",
-  "Daily entry complete. That's what we call a power move.",
-  "You just gave future you a gift. They'll never forget it. Literally.",
-  "Today: documented. Regret of forgetting: eliminated.",
-  "Your thoughts are now safely archived. The cloud has nothing on you.",
-  "Another chapter closed, another memory preserved.",
-  "Your journal streak is looking mighty fine today.",
-  "You wrote today. Somewhere, a blank page breathed a sigh of relief.",
-  "Mission accomplished: today has been thoroughly journalized.",
-  "Your daily entry is ready. Time to pat yourself on the back.",
-  "Consistency looks good on you. So does journaling.",
-  "One day at a time, one entry at a time. You're crushing it.",
-  "Your journal thanks you for your continued patronage.",
-  "Today was worth writing about. And you proved it.",
-  "Entry complete. Your future biographer sends their thanks.",
-  "You showed up, you wrote, you conquered. Classic you.",
-  "Your journal's daily quota: met. Your awesomeness quota: exceeded.",
-  "Another day preserved in amber. Well, digital amber.",
-  "Your dedication to documenting life is genuinely impressive.",
-  "Today's entry is in the bag. Tomorrow's nostalgia is guaranteed.",
-  "You and your journal make a great team.",
-  "Journaling streak: active. Self-awareness: leveling up.",
-];
+export const DIGEST_CONGRATULATIONS_QUIPS: Record<BotPersonality, string[]> = {
+  encouraging: [
+    "Another day documented! Your future self just high-fived you.",
+    "Day: captured. Memories: secured. You: awesome.",
+    "Look at you, documenting your life like a responsible human.",
+    "Your journal just got a little thicker. And a little wiser.",
+    "Achievement unlocked: today has been thoroughly chronicled.",
+    "Another day in the books. Literally.",
+    "Your future memoir just got a new chapter. No pressure.",
+    "You journaled today. The internet can't say the same.",
+    "Today's memories are now officially tamper-proof.",
+    "Congratulations, you out-documented most of humanity today.",
+    "Your journal is doing a little happy dance right now.",
+    "Day logged. Feelings processed. You're basically a productivity guru.",
+    "Another entry in the vault. Your thoughts are safe here.",
+    "You showed up for yourself today. Your journal noticed.",
+    "Plot twist: you actually journaled today. Character development!",
+  ],
+  drill_sergeant: [
+    "Day logged. Acceptable work.",
+    "Entry filed. Don't get comfortable.",
+    "You showed up. That's the minimum. Keep it up.",
+    "Report received. Continue operations.",
+    "Another day documented. Don't break the streak.",
+    "Entry complete. No excuses tomorrow either.",
+    "Logged and noted. Consistency is discipline.",
+    "Day recorded. That's what I expect.",
+    "Your daily report is in. Adequate.",
+    "Entry secured. Maintain this standard.",
+    "Written and filed. Now do it again tomorrow.",
+    "Day documented. Don't let me catch you slacking.",
+    "Record complete. Mission continues.",
+    "Today's debrief is logged. Dismissed.",
+    "Entry received. Standards maintained.",
+  ],
+  chill: [
+    "Another day gently captured. Beautiful.",
+    "Your thoughts found their place. All is well.",
+    "Day observed and recorded. Peace.",
+    "The day's moments are safely resting now.",
+    "Another page of your story, naturally unfolding.",
+    "Breathe — today is safely written down.",
+    "Your words settled into place. Lovely.",
+    "One more day flowing through your journal.",
+    "The day's energy is captured. Rest easy.",
+    "Your reflections are home. Nice.",
+    "Today's chapter, gently closed.",
+    "Words found their resting place. Namaste.",
+    "Another day observed without judgment.",
+    "Your journal received today gracefully.",
+    "The present moment, preserved.",
+  ],
+  coach: [
+    "Entry logged — solid execution today.",
+    "Great work showing up. Consistency wins.",
+    "Day documented. That's how streaks are built.",
+    "Another entry in the bank. Keep compounding.",
+    "Good discipline. Your future self will thank you.",
+    "Entry complete. One more rep in the journal gym.",
+    "Documented and done. That's a win today.",
+    "Day captured. Progress is in the process.",
+    "Strong showing — keep the momentum rolling.",
+    "Entry filed. You're building something here.",
+    "Today's entry is locked in. Well done.",
+    "Consistent effort pays off. Entry complete.",
+    "Another day, another step forward. Logged.",
+    "Great accountability. Keep it going.",
+    "Entry saved. That's what commitment looks like.",
+  ],
+};
 
-export function getFallbackDigestQuip(dateStr: string): string {
+export function getFallbackDigestQuip(dateStr: string, personality: BotPersonality = "encouraging"): string {
   const d = new Date(dateStr + "T00:00:00Z");
   const startOfYear = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const dayOfYear = Math.floor(
     (d.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)
   );
-  return DIGEST_CONGRATULATIONS_QUIPS[
-    dayOfYear % DIGEST_CONGRATULATIONS_QUIPS.length
-  ];
+  const quips = DIGEST_CONGRATULATIONS_QUIPS[personality];
+  return quips[dayOfYear % quips.length];
 }
 
 /**
  * Generate or retrieve cached AI content for a digest notification.
- * Returns { quip, synopsis } for use in both Telegram and email.
+ * Returns { quip, synopsis, accountability } for use in both Telegram and email.
  */
 export async function generateDigestNotificationContent(
   env: Env,
   userId: string,
   date: string,
-  digestContent: string
+  digestContent: string,
+  personality: BotPersonality = "encouraging"
 ): Promise<DigestNotificationContent> {
-  const kvKey = `digest_notif:${userId}:${date}`;
+  const kvKey = `digest_notif:${userId}:${date}:${personality}`;
 
   // Check KV cache
   try {
@@ -88,7 +108,7 @@ export async function generateDigestNotificationContent(
     if (cached) {
       const parsed = JSON.parse(cached);
       if (typeof parsed.quip === "string" && Array.isArray(parsed.synopsis)) {
-        return parsed;
+        return { ...parsed, accountability: parsed.accountability ?? null };
       }
     }
   } catch {
@@ -101,7 +121,8 @@ export async function generateDigestNotificationContent(
       const content = await callHaikuForDigestNotification(
         env.ANTHROPIC_API_KEY,
         date,
-        digestContent
+        digestContent,
+        personality
       );
       // Cache with 48h TTL
       await env.KV
@@ -113,17 +134,19 @@ export async function generateDigestNotificationContent(
     }
   }
 
-  // Fallback: static quip, no synopsis
+  // Fallback: static quip, no synopsis, no accountability
   return {
-    quip: getFallbackDigestQuip(date),
+    quip: getFallbackDigestQuip(date, personality),
     synopsis: [],
+    accountability: null,
   };
 }
 
 async function callHaikuForDigestNotification(
   apiKey: string,
   dateStr: string,
-  digestContent: string
+  digestContent: string,
+  personality: BotPersonality
 ): Promise<DigestNotificationContent> {
   const truncated =
     digestContent.length > 2000
@@ -141,25 +164,32 @@ async function callHaikuForDigestNotification(
     }
   );
 
+  const personalityInstruction = PERSONALITY_PROMPTS[personality];
+
   const client = new Anthropic({ apiKey });
   const message = await client.messages.create({
     model: "claude-3-5-haiku-20241022",
-    max_tokens: 256,
+    max_tokens: 350,
     system:
-      `You generate fun notification content for a journaling app called Journalizer. ` +
+      `You generate notification content for a journaling app called Journalizer. ` +
+      `${personalityInstruction}\n\n` +
       `The user has just completed their daily journal entry for ${formatted}. Congratulate them!\n\n` +
       `Respond with ONLY a JSON object (no markdown fences):\n` +
-      `{"quip": "A fun, cheeky 1-2 sentence congratulations for journaling today", "synopsis": ["bullet 1", "bullet 2", "bullet 3"]}\n\n` +
+      `{"quip": "A 1-2 sentence congratulations for journaling today", "synopsis": ["bullet 1", "bullet 2", "bullet 3"], "accountability": "One sentence connecting journal themes to habits/growth, or null if nothing noteworthy"}\n\n` +
       `Rules for the quip:\n` +
       `- Congratulate them for journaling today\n` +
-      `- Be warm, cheeky, and fun — a bit playful\n` +
+      `- Match the personality described above\n` +
       `- Reference something specific from their day if possible\n` +
       `- Keep it to 1-2 sentences\n\n` +
       `Rules for the synopsis:\n` +
       `- 2-3 bullet points summarizing the day's events/themes\n` +
       `- Each bullet under 20 words\n` +
       `- Write in second person ("You explored..." not "Explored...")\n` +
-      `- Cover the breadth of the day, not just one event`,
+      `- Cover the breadth of the day, not just one event\n\n` +
+      `Rules for accountability:\n` +
+      `- One sentence connecting what they wrote about to personal growth or habits\n` +
+      `- Set to null if the journal content doesn't lend itself to an observation\n` +
+      `- Match the personality tone`,
     messages: [{ role: "user", content: truncated || "(no text entries)" }],
   });
 
@@ -181,6 +211,9 @@ async function callHaikuForDigestNotification(
       const str = String(s);
       return str.length > 200 ? str.slice(0, 200) : str;
     }),
+    accountability: typeof parsed.accountability === "string" && parsed.accountability.length > 0
+      ? (parsed.accountability.length > 300 ? parsed.accountability.slice(0, 300) : parsed.accountability)
+      : null,
   };
 }
 
@@ -195,8 +228,11 @@ export function formatDigestTelegramMessage(
   if (content.synopsis.length > 0) {
     msg += "\n\nToday's highlights:";
     for (const bullet of content.synopsis) {
-      msg += `\n• ${bullet}`;
+      msg += `\n\u2022 ${bullet}`;
     }
+  }
+  if (content.accountability) {
+    msg += `\n\n${content.accountability}`;
   }
   return msg;
 }
@@ -236,6 +272,12 @@ export function buildDigestNotificationEmailHtml(
     </div>`
       : "";
 
+  const accountabilityHtml = content.accountability
+    ? `<div style="margin: 16px 0; padding: 12px 16px; background: #f0fdf4; border-left: 3px solid #22c55e; border-radius: 4px;">
+      <p style="margin: 0; font-size: 14px; color: #15803d; line-height: 1.5;">${escapeHtml(content.accountability)}</p>
+    </div>`
+    : "";
+
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -246,6 +288,7 @@ export function buildDigestNotificationEmailHtml(
     <p style="margin: 0 0 16px 0; font-size: 15px; color: #334155; line-height: 1.5;">Hi ${escapeHtml(name)},</p>
     <p style="margin: 0 0 8px 0; font-size: 15px; color: #334155; line-height: 1.5;">${escapeHtml(content.quip)}</p>
     ${synopsisHtml}
+    ${accountabilityHtml}
     <p style="margin: 0; font-size: 14px; color: #64748b; line-height: 1.5;">Your daily entry for <strong>${formatted}</strong> is ready to view in Journalizer.</p>
   </div>
   <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 24px; line-height: 1.5;">
