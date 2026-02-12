@@ -26,7 +26,7 @@ import {
   generateDigestNotificationContent,
   formatDigestTelegramMessage,
 } from "../services/digestNotification";
-import type { BotPersonality } from "../services/botPersonality";
+import { resolvePersonality } from "../services/botPersonality";
 import {
   AppError,
   ValidationError,
@@ -382,7 +382,7 @@ entries.post("/regenerate-digest", async (c) => {
   // Send enhanced notification if digest was created
   if (digestContent && user.telegramChatId) {
     try {
-      const digestPersonality = (user.botPersonality as BotPersonality) || "encouraging";
+      const digestPersonality = resolvePersonality(user.botPersonality);
       const notifContent = await generateDigestNotificationContent(
         c.env,
         userId,

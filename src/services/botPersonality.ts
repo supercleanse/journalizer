@@ -7,10 +7,23 @@ export type BotPersonality = "encouraging" | "drill_sergeant" | "chill" | "coach
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
+/** Resolve a raw botPersonality string to a typed BotPersonality with default fallback. */
+export function resolvePersonality(raw: string | null | undefined): BotPersonality {
+  if (raw === "drill_sergeant" || raw === "chill" || raw === "coach" || raw === "encouraging") {
+    return raw;
+  }
+  return "encouraging";
+}
+
 /** Sanitize user-supplied strings before embedding in prompts to prevent injection. */
 export function sanitizeForPrompt(input: string): string {
   // Truncate to reasonable length and remove control characters
   return input.slice(0, 200).replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, "");
+}
+
+/** Sanitize journal content for AI prompts — preserves newlines but removes dangerous control chars. */
+export function sanitizeJournalContent(input: string, maxLength = 200): string {
+  return input.slice(0, maxLength).replace(/[^\x20-\x7E\u00A0-\uFFFF\n\r\t]/g, "");
 }
 
 interface HabitResponseContext {
@@ -388,7 +401,7 @@ export function getStaticCheckinIntro(personality: BotPersonality, habitCount: n
     case "coach":
       return `Time to check in! ${habitCount} habit${habitCount !== 1 ? "s" : ""} on the board today.`;
     default:
-      return "Habit check-in time!";
+      return `Habit check-in time! ${habitCount} habit${habitCount !== 1 ? "s" : ""} to go.`;
   }
 }
 
@@ -414,7 +427,7 @@ export async function generateAccountabilityInsight(
     const client = new Anthropic({ apiKey });
 
     const snippets = context.recentEntrySnippets
-      .map((s) => sanitizeForPrompt(s))
+      .map((s) => sanitizeJournalContent(s, 200))
       .join("\n---\n");
 
     const habitList = context.activeHabitNames

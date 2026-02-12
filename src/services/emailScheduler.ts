@@ -11,7 +11,7 @@ import { fetchEntriesForExport, generatePdfWithImages } from "./export";
 import type { ExportOptions, PdfOptions, HabitData } from "./export";
 import { sendEmail, uint8ArrayToBase64 } from "./email";
 import { buildPersonalizedEmailHtml } from "./emailBody";
-import type { BotPersonality } from "./botPersonality";
+import { resolvePersonality } from "./botPersonality";
 import { getTrailingPeriod, advanceAlignedDate, isDueInTimezone } from "../lib/period";
 
 // Glass contract: failure modes
@@ -110,7 +110,7 @@ export async function handleEmailScheduler(env: Env): Promise<void> {
           startDate: start,
           endDate: end,
           habitData,
-          personality: (sub.userBotPersonality as BotPersonality) || "encouraging",
+          personality: resolvePersonality(sub.userBotPersonality),
         }
       );
 

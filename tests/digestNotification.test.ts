@@ -143,6 +143,17 @@ describe("buildDigestNotificationEmailHtml", () => {
     expect(html).toContain("Keep building on that morning routine.");
   });
 
+  it("escapes HTML in accountability section", () => {
+    const content: DigestNotificationContent = {
+      quip: "Nice!",
+      synopsis: [],
+      accountability: "Keep <script>alert('xss')</script> building.",
+    };
+    const html = buildDigestNotificationEmailHtml("Test", "2025-06-15", content);
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
   it("includes unsubscribe footer", () => {
     const content: DigestNotificationContent = {
       quip: "Done!",

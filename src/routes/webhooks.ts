@@ -15,6 +15,7 @@ import {
   getHabitById,
   updateHabit,
   getActiveHabitsForUser,
+  getEntriesForDate,
 } from "../db/queries";
 import type { HabitCheckinSession } from "../services/reminders";
 import type { TelegramUpdate } from "../services/telegram";
@@ -45,7 +46,7 @@ import {
   getStaticCleanupResponse,
   getStaticCheckinSummaryLine,
   generateAccountabilityInsight,
-  type BotPersonality,
+  resolvePersonality,
 } from "../services/botPersonality";
 
 const webhooks = new Hono<{ Bindings: Env }>();
@@ -105,7 +106,7 @@ async function processJournalMessage(
 
   // Send immediate acknowledgment so user knows the entry was saved
   const hasAudioVideo = entryType === "audio" || entryType === "video";
-  const personality = (user.botPersonality as BotPersonality) || "encouraging";
+  const personality = resolvePersonality(user.botPersonality);
   try {
     await sendTelegramMessage(
       env,
@@ -363,12 +364,12 @@ webhooks.post("/telegram", async (c) => {
     const sessionJson = await c.env.KV.get(sessionKey);
     if (sessionJson) {
       const session: HabitCheckinSession = JSON.parse(sessionJson);
+      const personality = resolvePersonality(user.botPersonality);
 
       // Handle /cancel command
       if (text.trim().toLowerCase() === "/cancel") {
         await c.env.KV.delete(sessionKey);
-        const cancelPersonality = (user.botPersonality as BotPersonality) || "encouraging";
-        await sendTelegramMessage(c.env, chatId, getStaticCancelMsg(cancelPersonality));
+        await sendTelegramMessage(c.env, chatId, getStaticCancelMsg(personality));
         return c.json({ ok: true });
       }
 
@@ -381,11 +382,10 @@ webhooks.post("/telegram", async (c) => {
       const isNo = NO_RESPONSES.has(normalized);
 
       if (!isYes && !isNo) {
-        const invalidPersonality = (user.botPersonality as BotPersonality) || "encouraging";
         await sendTelegramMessage(
           c.env,
           chatId,
-          getStaticInvalidResponseMsg(invalidPersonality)
+          getStaticInvalidResponseMsg(personality)
         );
         return c.json({ ok: true });
       }
@@ -395,14 +395,13 @@ webhooks.post("/telegram", async (c) => {
         const { habitId: cleanupHabitId, habitName: cleanupName } = session.pendingCleanup;
         delete session.pendingCleanup;
 
-        const cleanupPersonality = (user.botPersonality as BotPersonality) || "encouraging";
         if (isYes) {
           // Deactivate the habit
           await updateHabit(db, cleanupHabitId, session.userId, { isActive: 0 });
           await sendTelegramMessage(
             c.env,
             chatId,
-            getStaticCleanupResponse(cleanupPersonality, cleanupName, "deactivated")
+            getStaticCleanupResponse(personality, cleanupName, "deactivated")
           );
         } else {
           // Defer — update lastCleanupOfferedAt so we don't ask again for 30 days
@@ -412,7 +411,7 @@ webhooks.post("/telegram", async (c) => {
           await sendTelegramMessage(
             c.env,
             chatId,
-            getStaticCleanupResponse(cleanupPersonality, cleanupName, "kept")
+            getStaticCleanupResponse(personality, cleanupName, "kept")
           );
         }
 
@@ -428,7 +427,7 @@ webhooks.post("/telegram", async (c) => {
               return `${done ? "\u2705" : "\u274c"} ${name}`;
             })
             .join("\n");
-          const summaryLine = getStaticCheckinSummaryLine(cleanupPersonality);
+          const summaryLine = getStaticCheckinSummaryLine(personality);
           await sendTelegramMessage(c.env, chatId, `${summaryLine}\n\n${summary}`);
         }
         return c.json({ ok: true });
@@ -440,7 +439,6 @@ webhooks.post("/telegram", async (c) => {
       const habitName = session.names[session.currentIndex];
 
       // Compute streak BEFORE recording the answer (so counts reflect prior state)
-      const personality = (user.botPersonality as BotPersonality) || "encouraging";
       let streakResponse: string;
       let preStreak: Awaited<ReturnType<typeof getHabitStreak>> | null = null;
       try {
@@ -549,9 +547,7 @@ webhooks.post("/telegram", async (c) => {
             (async () => {
               try {
                 // Fetch recent entry snippets for accountability context
-                const recentEntries = await import("../db/queries").then((q) =>
-                  q.getEntriesForDate(db, session.userId, session.date)
-                );
+                const recentEntries = await getEntriesForDate(db, session.userId, session.date);
                 const snippets = recentEntries
                   .map((e) => (e.polishedContent || e.rawContent || "").slice(0, 200))
                   .filter((s) => s.length > 0);
