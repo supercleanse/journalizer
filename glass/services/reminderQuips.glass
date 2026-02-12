@@ -1,13 +1,13 @@
 === Glass Unit ===
 id: services.reminderQuips
-version: 0.1.0
+version: 0.2.0
 language: typescript
 
 === Intent ===
-purpose: Provide a fun, slightly cheeky daily quip for reminder messages. Generates a fresh quip each day via AI (cached in KV) with a curated static fallback list for reliability.
+purpose: Provide a personality-aware daily quip for reminder messages. Generates a fresh quip per personality per day via AI (cached in KV) with curated per-personality static fallback lists for reliability. Uses PERSONALITY_PROMPTS from botPersonality module to match the user's tone.
 source:
   kind: prd
-  reference: "Cheeky Reminder Quips Feature"
+  reference: "Personality Voice Everywhere — Reminder Quips"
 parent: null
 stakeholder: user
 subIntents: []
@@ -17,19 +17,23 @@ approvalStatus: approved
 requires:
   - "KV namespace binding for caching daily quips"
   - "ANTHROPIC_API_KEY for AI-generated quips (optional)"
+  - "BotPersonality type from botPersonality module"
 guarantees:
   on_success:
-    - "getDailyQuip always returns a string quip"
-    - "AI-generated quips are cached in KV with key reminder_quip:YYYY-MM-DD and 48h TTL"
-    - "Same quip is returned for all callers on the same day (one AI call per day)"
-    - "Quips are harmless, non-vulgar, slightly cheeky, and journaling-themed"
+    - "getDailyQuip accepts personality parameter and returns a personality-appropriate quip"
+    - "AI-generated quips cached in KV with key reminder_quip:YYYY-MM-DD:{personality} and 48h TTL"
+    - "Same quip returned for all callers with same personality on same day"
+    - "Quips are harmless, non-vulgar, and match the user's personality tone"
+    - "FALLBACK_QUIPS is a per-personality Record with ~15+ quips per personality"
+    - "getFallbackQuip accepts optional personality parameter"
   on_failure:
-    - "AI failure falls back to static FALLBACK_QUIPS list rotated by day-of-year"
+    - "AI failure falls back to personality-specific FALLBACK_QUIPS rotated by day-of-year"
     - "Missing API key uses static fallback without attempting AI"
 invariants:
-  - "At most one AI call per calendar day"
-  - "Static fallback list contains at least 50 quips"
+  - "At most one AI call per calendar day per personality (up to 4/day total)"
+  - "Encouraging personality has at least 50 fallback quips"
+  - "Other personalities have at least 15 fallback quips each"
   - "Quips are under 15 words"
 fails:
-  AnthropicError: "Fall back to static quip list"
-  KVError: "Fall back to static quip list"
+  AnthropicError: "Fall back to personality-specific static quip list"
+  KVError: "Fall back to personality-specific static quip list"

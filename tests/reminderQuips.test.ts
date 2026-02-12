@@ -2,27 +2,42 @@ import { describe, it, expect } from "vitest";
 import { FALLBACK_QUIPS, getFallbackQuip } from "../src/services/reminderQuips";
 
 describe("FALLBACK_QUIPS", () => {
-  it("has at least 50 quips", () => {
-    expect(FALLBACK_QUIPS.length).toBeGreaterThanOrEqual(50);
+  it("has at least 50 encouraging quips", () => {
+    expect(FALLBACK_QUIPS.encouraging.length).toBeGreaterThanOrEqual(50);
   });
 
-  it("all quips are non-empty strings", () => {
-    for (const quip of FALLBACK_QUIPS) {
-      expect(typeof quip).toBe("string");
-      expect(quip.trim().length).toBeGreaterThan(0);
+  it("has quips for all personalities", () => {
+    for (const personality of ["encouraging", "drill_sergeant", "chill", "coach"] as const) {
+      expect(FALLBACK_QUIPS[personality].length).toBeGreaterThan(0);
     }
   });
 
-  it("has no duplicate quips", () => {
-    const unique = new Set(FALLBACK_QUIPS);
-    expect(unique.size).toBe(FALLBACK_QUIPS.length);
+  it("all quips are non-empty strings", () => {
+    for (const personality of ["encouraging", "drill_sergeant", "chill", "coach"] as const) {
+      for (const quip of FALLBACK_QUIPS[personality]) {
+        expect(typeof quip).toBe("string");
+        expect(quip.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("has no duplicate quips within each personality", () => {
+    for (const personality of ["encouraging", "drill_sergeant", "chill", "coach"] as const) {
+      const unique = new Set(FALLBACK_QUIPS[personality]);
+      expect(unique.size).toBe(FALLBACK_QUIPS[personality].length);
+    }
   });
 });
 
 describe("getFallbackQuip", () => {
   it("returns a quip from the fallback list", () => {
     const quip = getFallbackQuip("2025-06-15");
-    expect(FALLBACK_QUIPS).toContain(quip);
+    expect(FALLBACK_QUIPS.encouraging).toContain(quip);
+  });
+
+  it("returns a personality-specific quip", () => {
+    const quip = getFallbackQuip("2025-06-15", "drill_sergeant");
+    expect(FALLBACK_QUIPS.drill_sergeant).toContain(quip);
   });
 
   it("returns different quips for different dates", () => {
@@ -43,6 +58,6 @@ describe("getFallbackQuip", () => {
   it("wraps around when day-of-year exceeds quip count", () => {
     // Day 365 should still return a valid quip
     const quip = getFallbackQuip("2025-12-31");
-    expect(FALLBACK_QUIPS).toContain(quip);
+    expect(FALLBACK_QUIPS.encouraging).toContain(quip);
   });
 });

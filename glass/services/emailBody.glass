@@ -1,13 +1,13 @@
 === Glass Unit ===
 id: services.emailBody
-version: 0.1.0
+version: 0.2.0
 language: typescript
 
 === Intent ===
-purpose: Generate personalized, AI-enhanced email body content for journal export emails. Computes period stats and uses Claude to generate a congratulatory quip and synopsis from journal entries. Falls back gracefully if AI is unavailable.
+purpose: Generate personalized, AI-enhanced email body content for journal export emails. Computes period stats and uses Claude with personality-aware prompts to generate a congratulatory quip and synopsis from journal entries. Falls back gracefully if AI is unavailable.
 source:
   kind: prd
-  reference: "Personalized Email Body Feature"
+  reference: "Personality Voice Everywhere — Subscription Emails"
 parent: null
 stakeholder: user
 subIntents: []
@@ -17,10 +17,12 @@ approvalStatus: approved
 requires:
   - "ExportEntry[] array with entries for the email period"
   - "ANTHROPIC_API_KEY for AI-generated content (optional)"
+  - "BotPersonality type from botPersonality module (optional, defaults to encouraging)"
 guarantees:
   on_success:
     - "computeEntryStats returns accurate counts of unique days, entries, images, videos, and audio"
-    - "generateEmailAIContent returns a personalized quip and 3-4 bullet synopsis"
+    - "generateEmailAIContent accepts personality parameter and returns a personality-appropriate quip and 3-4 bullet synopsis"
+    - "buildPersonalizedEmailHtml accepts personality in options and passes through to AI generation"
     - "buildPersonalizedEmailHtml always returns valid HTML regardless of AI availability"
     - "All user-derived and AI-generated text is HTML-escaped"
     - "Habit completion stats included in email when habitData is provided"

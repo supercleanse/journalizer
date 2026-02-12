@@ -14,6 +14,7 @@ import {
   upsertHabitLog,
   getHabitById,
   updateHabit,
+  getActiveHabitsForUser,
 } from "../db/queries";
 import type { HabitCheckinSession } from "../services/reminders";
 import type { TelegramUpdate } from "../services/telegram";
@@ -36,6 +37,14 @@ import { getHabitStreak } from "../services/streaks";
 import {
   generateHabitResponse,
   getStaticHabitResponse,
+  getStaticEntrySavedAck,
+  getStaticTranscriptionCompleteMsg,
+  getStaticCancelMsg,
+  getStaticInvalidResponseMsg,
+  getStaticCleanupOffer,
+  getStaticCleanupResponse,
+  getStaticCheckinSummaryLine,
+  generateAccountabilityInsight,
   type BotPersonality,
 } from "../services/botPersonality";
 
@@ -50,7 +59,7 @@ const webhooks = new Hono<{ Bindings: Env }>();
 async function processJournalMessage(
   env: Env,
   db: Database,
-  user: { id: string; voiceStyle: string | null; voiceNotes: string | null; timezone: string | null },
+  user: { id: string; voiceStyle: string | null; voiceNotes: string | null; timezone: string | null; botPersonality: string | null },
   chatId: string,
   message: NonNullable<TelegramUpdate["message"]>
 ) {
@@ -96,13 +105,12 @@ async function processJournalMessage(
 
   // Send immediate acknowledgment so user knows the entry was saved
   const hasAudioVideo = entryType === "audio" || entryType === "video";
+  const personality = (user.botPersonality as BotPersonality) || "encouraging";
   try {
     await sendTelegramMessage(
       env,
       chatId,
-      hasAudioVideo
-        ? "Got it! Your journal entry has been saved. Processing media..."
-        : "Got it! Your journal entry has been saved."
+      getStaticEntrySavedAck(personality, entryType)
     );
   } catch {
     // Non-critical — continue processing even if ACK fails
@@ -273,9 +281,7 @@ async function processJournalMessage(
     await sendTelegramMessage(
       env,
       chatId,
-      transcribed
-        ? "Your media has been transcribed and polished."
-        : "Processing finished, but transcription failed. You can try re-transcribing from the web app."
+      getStaticTranscriptionCompleteMsg(personality, transcribed)
     );
   }
 }
@@ -361,7 +367,8 @@ webhooks.post("/telegram", async (c) => {
       // Handle /cancel command
       if (text.trim().toLowerCase() === "/cancel") {
         await c.env.KV.delete(sessionKey);
-        await sendTelegramMessage(c.env, chatId, "Habit check-in cancelled.");
+        const cancelPersonality = (user.botPersonality as BotPersonality) || "encouraging";
+        await sendTelegramMessage(c.env, chatId, getStaticCancelMsg(cancelPersonality));
         return c.json({ ok: true });
       }
 
@@ -374,10 +381,11 @@ webhooks.post("/telegram", async (c) => {
       const isNo = NO_RESPONSES.has(normalized);
 
       if (!isYes && !isNo) {
+        const invalidPersonality = (user.botPersonality as BotPersonality) || "encouraging";
         await sendTelegramMessage(
           c.env,
           chatId,
-          "Please reply yes or no (y/n/t/f/1/0)."
+          getStaticInvalidResponseMsg(invalidPersonality)
         );
         return c.json({ ok: true });
       }
@@ -387,13 +395,14 @@ webhooks.post("/telegram", async (c) => {
         const { habitId: cleanupHabitId, habitName: cleanupName } = session.pendingCleanup;
         delete session.pendingCleanup;
 
+        const cleanupPersonality = (user.botPersonality as BotPersonality) || "encouraging";
         if (isYes) {
           // Deactivate the habit
           await updateHabit(db, cleanupHabitId, session.userId, { isActive: 0 });
           await sendTelegramMessage(
             c.env,
             chatId,
-            `Got it — "${cleanupName}" has been deactivated. You can re-enable it anytime from Settings.`
+            getStaticCleanupResponse(cleanupPersonality, cleanupName, "deactivated")
           );
         } else {
           // Defer — update lastCleanupOfferedAt so we don't ask again for 30 days
@@ -403,7 +412,7 @@ webhooks.post("/telegram", async (c) => {
           await sendTelegramMessage(
             c.env,
             chatId,
-            `No problem — keeping "${cleanupName}" active.`
+            getStaticCleanupResponse(cleanupPersonality, cleanupName, "kept")
           );
         }
 
@@ -419,7 +428,8 @@ webhooks.post("/telegram", async (c) => {
               return `${done ? "\u2705" : "\u274c"} ${name}`;
             })
             .join("\n");
-          await sendTelegramMessage(c.env, chatId, `Habit check-in complete!\n\n${summary}`);
+          const summaryLine = getStaticCheckinSummaryLine(cleanupPersonality);
+          await sendTelegramMessage(c.env, chatId, `${summaryLine}\n\n${summary}`);
         }
         return c.json({ ok: true });
       }
@@ -490,10 +500,11 @@ webhooks.post("/telegram", async (c) => {
             session.pendingCleanup = { habitId, habitName };
             const kvWriteOk = await c.env.KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 3600 }).then(() => true, () => false);
             if (kvWriteOk) {
+              const cleanupOfferMsg = getStaticCleanupOffer(personality, habitName, adjustedStreak.consecutiveMisses);
               await sendTelegramMessage(
                 c.env,
                 chatId,
-                `${streakResponse}\n\nYou've missed "${habitName}" for ${adjustedStreak.consecutiveMisses} days in a row. Want me to remove it from your check-ins? (yes/no)`
+                `${streakResponse}\n\n${cleanupOfferMsg}`
               );
               return c.json({ ok: true });
             }
@@ -525,11 +536,43 @@ webhooks.post("/telegram", async (c) => {
             return `${done ? "\u2705" : "\u274c"} ${name}`;
           })
           .join("\n");
+        const summaryLine = getStaticCheckinSummaryLine(personality);
         await sendTelegramMessage(
           c.env,
           chatId,
-          `${streakResponse}\n\nHabit check-in complete!\n\n${summary}`
+          `${streakResponse}\n\n${summaryLine}\n\n${summary}`
         );
+
+        // Fire accountability insight as a non-blocking follow-up
+        if (c.env.ANTHROPIC_API_KEY) {
+          c.executionCtx.waitUntil(
+            (async () => {
+              try {
+                // Fetch recent entry snippets for accountability context
+                const recentEntries = await import("../db/queries").then((q) =>
+                  q.getEntriesForDate(db, session.userId, session.date)
+                );
+                const snippets = recentEntries
+                  .map((e) => (e.polishedContent || e.rawContent || "").slice(0, 200))
+                  .filter((s) => s.length > 0);
+
+                const activeHabits = await getActiveHabitsForUser(db, session.userId);
+                const habitNames = activeHabits.map((h) => h.name);
+
+                const insight = await generateAccountabilityInsight(c.env.ANTHROPIC_API_KEY, {
+                  personality,
+                  recentEntrySnippets: snippets,
+                  activeHabitNames: habitNames,
+                });
+                if (insight) {
+                  await sendTelegramMessage(c.env, chatId, insight);
+                }
+              } catch {
+                // Non-critical — accountability insight failure is silent
+              }
+            })()
+          );
+        }
       }
 
       return c.json({ ok: true });

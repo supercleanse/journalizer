@@ -14,6 +14,7 @@ import { fetchEntriesForExport, generatePdfWithImages } from "../services/export
 import type { ExportOptions, PdfOptions } from "../services/export";
 import { sendEmail, uint8ArrayToBase64 } from "../services/email";
 import { buildPersonalizedEmailHtml } from "../services/emailBody";
+import type { BotPersonality } from "../services/botPersonality";
 import { formatDateStr, getAlignedSendDate } from "../lib/period";
 
 // Glass contract: failure modes
@@ -211,6 +212,7 @@ emailRoutes.post("/send-now", async (c) => {
       periodLabel,
       startDate,
       endDate,
+      personality: (user.botPersonality as BotPersonality) || "encouraging",
     }
   );
 
